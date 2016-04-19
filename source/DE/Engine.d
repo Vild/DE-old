@@ -36,8 +36,8 @@ public:
 
 	void Write(string str) {
 		foreach (ch; str)
-		  buf.AddChar(ch);
-  }
+			buf.AddChar(ch);
+	}
 
 	void Move(Vec2 pos) {
 		terminal.moveTo(pos.x, pos.y);

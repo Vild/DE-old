@@ -16,22 +16,23 @@ public:
 	}
 
 	void AddChar(dchar ch) {
-		while (cursor.y >= data.length)
-			data ~= "";
+		while (cursor.y >= lines.length)
+			lines ~= "";
 
 		if (ch == '\b') {
-			dstring* line = &data[cursor.y];
-			
+			dstring* line = &lines[cursor.y];
+
 			if (cursor.x < line.length)
 				*line = (*line)[0 .. cursor.x] ~ (*line)[cursor.x .. $];
 			else
 				*line = (*line)[0 .. $ - 1];
-		  cursor.x--;
+			cursor.x--;
 		} else if (ch == '\n') {
 			cursor.x = 0;
 			cursor.y++;
+			lines = lines[0 .. cursor.y] ~ "" ~ lines[cursor.y .. $];
 		} else {
-			dstring* line = &data[cursor.y];
+			dstring* line = &lines[cursor.y];
 			if (cursor.x < line.length)
 				*line = (*line)[0 .. cursor.x] ~ ch ~ (*line)[cursor.x .. $];
 			else
@@ -44,36 +45,39 @@ public:
 		Vec2 pos;
 
 		engine.Move(pos);
-		foreach (line; data) {
+		foreach (line; lines) {
 			foreach (ch; line) {
 				engine.Write(ch);
 				pos.x++;
-				
+
 				engine.Color = Styles.Default;
 
 				if (pos.x >= engine.Width) {
 					pos.x = 0;
 					pos.y++;
+					engine.Move(pos);
 					engine.Color = Styles.LineWrapped;
 				}
 			}
 			pos.x = 0;
 			pos.y++;
+			engine.Move(pos);
 		}
-		
+
 		engine.Move(cursor);
 	}
 
 	void Move(Vec2 dif) {
 		import std.algorithm;
+
 		cursor += dif;
-		cursor.y = cursor.y.min(data.length - 1).max(0);
-		cursor.x = cursor.x.min(data[cursor.y].length).max(0);
+		cursor.y = cursor.y.min(lines.length - 1).max(0);
+		cursor.x = cursor.x.min(lines[cursor.y].length).max(0);
 	}
 
 private:
 	Engine engine;
-	dstring[] data;
+	dstring[] lines;
 	Vec2 cursor;
 	Vec2 viewport;
 

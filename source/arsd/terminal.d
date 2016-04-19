@@ -68,43 +68,48 @@ module arsd.terminal;
 
 // FIXME: http://msdn.microsoft.com/en-us/library/windows/desktop/ms686016%28v=vs.85%29.aspx
 
-version(Posix) {
+version (Posix) {
 	enum SIGWINCH = 28;
 	__gshared bool windowSizeChanged = false;
 	__gshared bool interrupted = false; /// you might periodically check this in a long operation and abort if it is set. Remember it is volatile. It is also sent through the input event loop via RealTimeConsoleInput
 	__gshared bool hangedUp = false; /// similar to interrupted.
 
-	version(with_eventloop)
-		struct SignalFired {}
+	version (with_eventloop) struct SignalFired {
+	}
 
-	extern(C)
-	void sizeSignalHandler(int sigNumber) nothrow {
+	extern (C) void sizeSignalHandler(int sigNumber) nothrow {
 		windowSizeChanged = true;
-		version(with_eventloop) {
+		version (with_eventloop) {
 			import arsd.eventloop;
+
 			try
 				send(SignalFired());
-			catch(Exception) {}
+			catch (Exception) {
+			}
 		}
 	}
-	extern(C)
-	void interruptSignalHandler(int sigNumber) nothrow {
+
+	extern (C) void interruptSignalHandler(int sigNumber) nothrow {
 		interrupted = true;
-		version(with_eventloop) {
+		version (with_eventloop) {
 			import arsd.eventloop;
+
 			try
 				send(SignalFired());
-			catch(Exception) {}
+			catch (Exception) {
+			}
 		}
 	}
-	extern(C)
-	void hangupSignalHandler(int sigNumber) nothrow {
+
+	extern (C) void hangupSignalHandler(int sigNumber) nothrow {
 		hangedUp = true;
-		version(with_eventloop) {
+		version (with_eventloop) {
 			import arsd.eventloop;
+
 			try
 				send(SignalFired());
-			catch(Exception) {}
+			catch (Exception) {
+			}
 		}
 	}
 
@@ -117,9 +122,10 @@ version(Posix) {
 // capabilities.
 //version = Demo
 
-version(Windows) {
+version (Windows) {
 	import core.sys.windows.windows;
 	import std.string : toStringz;
+
 	private {
 		enum RED_BIT = 4;
 		enum GREEN_BIT = 2;
@@ -127,27 +133,30 @@ version(Windows) {
 	}
 }
 
-version(Posix) {
+version (Posix) {
 	import core.sys.posix.termios;
 	import core.sys.posix.unistd;
 	import unix = core.sys.posix.unistd;
 	import core.sys.posix.sys.types;
 	import core.sys.posix.sys.time;
 	import core.stdc.stdio;
+
 	private {
 		enum RED_BIT = 1;
 		enum GREEN_BIT = 2;
 		enum BLUE_BIT = 4;
 	}
 
-	version(linux) {
-		extern(C) int ioctl(int, int, ...);
+	version (linux) {
+		extern (C) int ioctl(int, int, ...);
 		enum int TIOCGWINSZ = 0x5413;
-	} else version(OSX) {
+	} else version (OSX) {
 		import core.stdc.config;
-		extern(C) int ioctl(int, c_ulong, ...);
+
+		extern (C) int ioctl(int, c_ulong, ...);
 		enum TIOCGWINSZ = 1074295912;
-	} else static assert(0, "confirm the value of tiocgwinsz");
+	} else
+		static assert(0, "confirm the value of tiocgwinsz");
 
 	struct winsize {
 		ushort ws_row;
@@ -288,7 +297,7 @@ Eterm|Eterm Terminal Emulator (X11 Window System):\
         :sc=\E7:se=\E[27m:sf=^J:so=\E[7m:sr=\EM:st=\EH:ta=^I:\
         :te=\E[2J\E[?47l\E8:ti=\E7\E[?47h:ue=\E[24m:up=\E[A:\
         :us=\E[4m:vb=\E[?5h\E[?5l:ve=\E[?25h:vi=\E[?25l:\
-        :ac=``aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~:
+        :ac=` `aaffggiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz{{||}}~~:
 
 # DOS terminal emulator such as Telix or TeleMate.
 # This probably also works for the SCO console, though it's incomplete.
@@ -335,8 +344,8 @@ enum ConsoleInputFlags {
 
 	releasedKeys = 64, /// key release events. Not reliable on Posix.
 
-	allInputEvents = 8|4|2, /// subscribe to all input events. Note: in previous versions, this also returned release events. It no longer does, use allInputEventsWithRelease if you want them.
-	allInputEventsWithRelease = allInputEvents|releasedKeys, /// subscribe to all input events, including (unreliable on Posix) key release events.
+	allInputEvents = 8 | 4 | 2, /// subscribe to all input events. Note: in previous versions, this also returned release events. It no longer does, use allInputEventsWithRelease if you want them.
+	allInputEventsWithRelease = allInputEvents | releasedKeys, /// subscribe to all input events, including (unreliable on Posix) key release events.
 }
 
 /// Defines how terminal output should be handled.
@@ -366,20 +375,21 @@ struct Terminal {
 	@disable this(this);
 	private ConsoleOutputType type;
 
-	version(Posix) {
+	version (Posix) {
 		private int fdOut;
 		private int fdIn;
-		private int[] delegate() getSizeOverride;
+		private int[]delegate() getSizeOverride;
 		void delegate(in void[]) _writeDelegate; // used to override the unix write() system call, set it magically
 	}
 
-	version(Posix) {
+	version (Posix) {
 		bool terminalInFamily(string[] terms...) {
 			import std.process;
 			import std.string;
+
 			auto term = environment.get("TERM");
-			foreach(t; terms)
-				if(indexOf(term, t) != -1)
+			foreach (t; terms)
+				if (indexOf(term, t) != -1)
 					return true;
 
 			return false;
@@ -391,6 +401,7 @@ struct Terminal {
 		bool isMacTerminal() {
 			import std.process;
 			import std.string;
+
 			auto term = environment.get("TERM");
 			return term == "xterm-256color";
 		}
@@ -401,48 +412,48 @@ struct Terminal {
 			import std.stdio;
 			import std.string;
 
-			if(!exists("/etc/termcap"))
+			if (!exists("/etc/termcap"))
 				useBuiltinTermcap = true;
 
 			string current;
 
 			void commitCurrentEntry() {
-				if(current is null)
+				if (current is null)
 					return;
 
 				string names = current;
 				auto idx = indexOf(names, ":");
-				if(idx != -1)
+				if (idx != -1)
 					names = names[0 .. idx];
 
-				foreach(name; split(names, "|"))
+				foreach (name; split(names, "|"))
 					termcapDatabase[name] = current;
 
 				current = null;
 			}
 
 			void handleTermcapLine(in char[] line) {
-				if(line.length == 0) { // blank
+				if (line.length == 0) { // blank
 					commitCurrentEntry();
 					return; // continue
 				}
-				if(line[0] == '#') // comment
+				if (line[0] == '#') // comment
 					return; // continue
 				size_t termination = line.length;
-				if(line[$-1] == '\\')
+				if (line[$ - 1] == '\\')
 					termination--; // cut off the \\
 				current ~= strip(line[0 .. termination]);
 				// termcap entries must be on one logical line, so if it isn't continued, we know we're done
-				if(line[$-1] != '\\')
+				if (line[$ - 1] != '\\')
 					commitCurrentEntry();
 			}
 
-			if(useBuiltinTermcap) {
-				foreach(line; splitLines(builtinTermcap)) {
+			if (useBuiltinTermcap) {
+				foreach (line; splitLines(builtinTermcap)) {
 					handleTermcapLine(line);
 				}
 			} else {
-				foreach(line; File("/etc/termcap").byLine()) {
+				foreach (line; File("/etc/termcap").byLine()) {
 					handleTermcapLine(line);
 				}
 			}
@@ -451,19 +462,19 @@ struct Terminal {
 		static string getTermcapDatabase(string terminal) {
 			import std.string;
 
-			if(termcapDatabase is null)
+			if (termcapDatabase is null)
 				readTermcapFile();
 
 			auto data = terminal in termcapDatabase;
-			if(data is null)
+			if (data is null)
 				return null;
 
 			auto tc = *data;
 			auto more = indexOf(tc, ":tc=");
-			if(more != -1) {
+			if (more != -1) {
 				auto tcKey = tc[more + ":tc=".length .. $];
 				auto end = indexOf(tcKey, ":");
-				if(end != -1)
+				if (end != -1)
 					tcKey = tcKey[0 .. end];
 				tc = getTermcapDatabase(tcKey) ~ tc;
 			}
@@ -478,28 +489,27 @@ struct Terminal {
 			import std.array;
 
 			string termcapData = environment.get("TERMCAP");
-			if(termcapData.length == 0) {
+			if (termcapData.length == 0) {
 				termcapData = getTermcapDatabase(environment.get("TERM"));
 			}
 
 			auto e = replace(termcapData, "\\\n", "\n");
 			termcap = null;
 
-			foreach(part; split(e, ":")) {
+			foreach (part; split(e, ":")) {
 				// FIXME: handle numeric things too
 
 				auto things = split(part, "=");
-				if(things.length)
-					termcap[things[0]] =
-						things.length > 1 ? things[1] : null;
+				if (things.length)
+					termcap[things[0]] = things.length > 1 ? things[1] : null;
 			}
 		}
 
 		string findSequenceInTermcap(in char[] sequenceIn) {
 			char[10] sequenceBuffer;
 			char[] sequence;
-			if(sequenceIn.length > 0 && sequenceIn[0] == '\033') {
-				if(!(sequenceIn.length < sequenceBuffer.length - 1))
+			if (sequenceIn.length > 0 && sequenceIn[0] == '\033') {
+				if (!(sequenceIn.length < sequenceBuffer.length - 1))
 					return null;
 				sequenceBuffer[1 .. sequenceIn.length + 1] = sequenceIn[];
 				sequenceBuffer[0] = '\\';
@@ -510,38 +520,41 @@ struct Terminal {
 			}
 
 			import std.array;
-			foreach(k, v; termcap)
-				if(v == sequence)
+
+			foreach (k, v; termcap)
+				if (v == sequence)
 					return k;
 			return null;
 		}
 
 		string getTermcap(string key) {
 			auto k = key in termcap;
-			if(k !is null) return *k;
+			if (k !is null)
+				return *k;
 			return null;
 		}
 
 		// Looks up a termcap item and tries to execute it. Returns false on failure
 		bool doTermcap(T...)(string key, T t) {
 			import std.conv;
+
 			auto fs = getTermcap(key);
-			if(fs is null)
+			if (fs is null)
 				return false;
 
 			int swapNextTwo = 0;
 
 			R getArg(R)(int idx) {
-				if(swapNextTwo == 2) {
-					idx ++;
+				if (swapNextTwo == 2) {
+					idx++;
 					swapNextTwo--;
-				} else if(swapNextTwo == 1) {
-					idx --;
+				} else if (swapNextTwo == 1) {
+					idx--;
 					swapNextTwo--;
 				}
 
-				foreach(i, arg; t) {
-					if(i == idx)
+				foreach (i, arg; t) {
+					if (i == idx)
 						return to!R(arg);
 				}
 				assert(0, to!string(idx) ~ " is out of bounds working " ~ fs);
@@ -552,12 +565,14 @@ struct Terminal {
 
 			void addChar(char c) {
 				import std.exception;
+
 				enforce(bufferPos < buffer.length);
 				buffer[bufferPos++] = c;
 			}
 
 			void addString(in char[] c) {
 				import std.exception;
+
 				enforce(bufferPos + c.length < buffer.length);
 				buffer[bufferPos .. bufferPos + c.length] = c[];
 				bufferPos += c.length;
@@ -565,7 +580,8 @@ struct Terminal {
 
 			void addInt(int c, int minSize) {
 				import std.string;
-				auto str = format("%0"~(minSize ? to!string(minSize) : "")~"d", c);
+
+				auto str = format("%0" ~ (minSize ? to!string(minSize) : "") ~ "d", c);
 				addString(str);
 			}
 
@@ -576,78 +592,79 @@ struct Terminal {
 			bool nextIsChar;
 			bool inBackslash;
 
-			foreach(char c; fs) {
-				if(inBackslash) {
-					if(c == 'E')
+			foreach (char c; fs) {
+				if (inBackslash) {
+					if (c == 'E')
 						addChar('\033');
 					else
 						addChar(c);
 					inBackslash = false;
-				} else if(nextIsChar) {
-					if(skipNext)
+				} else if (nextIsChar) {
+					if (skipNext)
 						skipNext = false;
 					else
-						addChar(cast(char) (c + getArg!int(argPosition) + (incrementParams ? 1 : 0)));
-					if(incrementParams) incrementParams--;
+						addChar(cast(char)(c + getArg!int(argPosition) + (incrementParams ? 1 : 0)));
+					if (incrementParams)
+						incrementParams--;
 					argPosition++;
 					inPercent = false;
-				} else if(inPercent) {
-					switch(c) {
-						case '%':
-							addChar('%');
-							inPercent = false;
+				} else if (inPercent) {
+					switch (c) {
+					case '%':
+						addChar('%');
+						inPercent = false;
 						break;
-						case '2':
-						case '3':
-						case 'd':
-							if(skipNext)
-								skipNext = false;
-							else
-								addInt(getArg!int(argPosition) + (incrementParams ? 1 : 0),
-									c == 'd' ? 0 : (c - '0')
-								);
-							if(incrementParams) incrementParams--;
-							argPosition++;
-							inPercent = false;
+					case '2':
+					case '3':
+					case 'd':
+						if (skipNext)
+							skipNext = false;
+						else
+							addInt(getArg!int(argPosition) + (incrementParams ? 1 : 0), c == 'd' ? 0 : (c - '0'));
+						if (incrementParams)
+							incrementParams--;
+						argPosition++;
+						inPercent = false;
 						break;
-						case '.':
-							if(skipNext)
-								skipNext = false;
-							else
-								addChar(cast(char) (getArg!int(argPosition) + (incrementParams ? 1 : 0)));
-							if(incrementParams) incrementParams--;
-							argPosition++;
+					case '.':
+						if (skipNext)
+							skipNext = false;
+						else
+							addChar(cast(char)(getArg!int(argPosition) + (incrementParams ? 1 : 0)));
+						if (incrementParams)
+							incrementParams--;
+						argPosition++;
 						break;
-						case '+':
-							nextIsChar = true;
-							inPercent = false;
+					case '+':
+						nextIsChar = true;
+						inPercent = false;
 						break;
-						case 'i':
-							incrementParams = 2;
-							inPercent = false;
+					case 'i':
+						incrementParams = 2;
+						inPercent = false;
 						break;
-						case 's':
-							skipNext = true;
-							inPercent = false;
+					case 's':
+						skipNext = true;
+						inPercent = false;
 						break;
-						case 'b':
-							argPosition--;
-							inPercent = false;
+					case 'b':
+						argPosition--;
+						inPercent = false;
 						break;
-						case 'r':
-							swapNextTwo = 2;
-							inPercent = false;
+					case 'r':
+						swapNextTwo = 2;
+						inPercent = false;
 						break;
 						// FIXME: there's more
 						// http://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html
 
-						default:
-							assert(0, "not supported " ~ c);
+					default:
+						assert(0, "not supported " ~ c);
 					}
 				} else {
-					if(c == '%')
+					if (c == '%')
 						inPercent = true;
-					else if(c == '\\')
+					else if (c == '\\')
 						inBackslash = true;
 					else
 						addChar(c);
@@ -659,8 +676,7 @@ struct Terminal {
 		}
 	}
 
-	version(Posix)
-	/**
+	version (Posix) /**
 	 * Constructs an instance of Terminal representing the capabilities of
 	 * the current terminal.
 	 *
@@ -669,7 +685,7 @@ struct Terminal {
 	 *
 	 * ditto on getSizeOverride. That's there so you can do something instead of ioctl.
 	 */
-	this(ConsoleOutputType type, int fdIn = 0, int fdOut = 1, int[] delegate() getSizeOverride = null) {
+	this(ConsoleOutputType type, int fdIn = 0, int fdOut = 1, int[]delegate() getSizeOverride = null) {
 		this.fdIn = fdIn;
 		this.fdOut = fdOut;
 		this.getSizeOverride = getSizeOverride;
@@ -677,34 +693,34 @@ struct Terminal {
 
 		readTermcap();
 
-		if(type == ConsoleOutputType.minimalProcessing) {
+		if (type == ConsoleOutputType.minimalProcessing) {
 			_suppressDestruction = true;
 			return;
 		}
 
-		if(type == ConsoleOutputType.cellular) {
+		if (type == ConsoleOutputType.cellular) {
 			doTermcap("ti");
 			clear();
 			moveTo(0, 0, ForceOption.alwaysSend); // we need to know where the cursor is for some features to work, and moving it is easier than querying it
 		}
 
-		if(terminalInFamily("xterm", "rxvt", "screen")) {
+		if (terminalInFamily("xterm", "rxvt", "screen")) {
 			writeStringRaw("\033[22;0t"); // save window title on a stack (support seems spotty, but it doesn't hurt to have it)
 		}
 	}
 
-	version(Windows) {
+	version (Windows) {
 		HANDLE hConsole;
 		CONSOLE_SCREEN_BUFFER_INFO originalSbi;
 	}
 
-	version(Windows)
-	/// ditto
+	version (Windows) /// ditto
 	this(ConsoleOutputType type) {
-		if(type == ConsoleOutputType.cellular) {
+		if (type == ConsoleOutputType.cellular) {
 			hConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, null, CONSOLE_TEXTMODE_BUFFER, null);
-			if(hConsole == INVALID_HANDLE_VALUE) {
+			if (hConsole == INVALID_HANDLE_VALUE) {
 				import std.conv;
+
 				throw new Exception(to!string(GetLastError()));
 			}
 
@@ -737,38 +753,36 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	// only use this if you are sure you know what you want, since the terminal is a shared resource you generally really want to reset it to normal when you leave...
 	bool _suppressDestruction;
 
-	version(Posix)
-	~this() {
-		if(_suppressDestruction) {
+	version (Posix)  ~this() {
+		if (_suppressDestruction) {
 			flush();
 			return;
 		}
-		if(type == ConsoleOutputType.cellular) {
+		if (type == ConsoleOutputType.cellular) {
 			doTermcap("te");
 		}
-		if(terminalInFamily("xterm", "rxvt", "screen")) {
+		if (terminalInFamily("xterm", "rxvt", "screen")) {
 			writeStringRaw("\033[23;0t"); // restore window title from the stack
 		}
 		showCursor();
 		reset();
 		flush();
 
-		if(lineGetter !is null)
+		if (lineGetter !is null)
 			lineGetter.dispose();
 	}
 
-	version(Windows)
-	~this() {
+	version (Windows)  ~this() {
 		flush(); // make sure user data is all flushed before resetting
 		reset();
 		showCursor();
 
-		if(lineGetter !is null)
+		if (lineGetter !is null)
 			lineGetter.dispose();
 
 		auto stdo = GetStdHandle(STD_OUTPUT_HANDLE);
 		SetConsoleActiveScreenBuffer(stdo);
-		if(hConsole !is stdo)
+		if (hConsole !is stdo)
 			CloseHandle(hConsole);
 	}
 
@@ -782,42 +796,42 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// Changes the current color. See enum Color for the values.
 	void color(int foreground, int background, ForceOption force = ForceOption.automatic, bool reverseVideo = false) {
-		if(force != ForceOption.neverSend) {
-			version(Windows) {
+		if (force != ForceOption.neverSend) {
+			version (Windows) {
 				// assuming a dark background on windows, so LowContrast == dark which means the bit is NOT set on hardware
 				/*
 				foreground ^= LowContrast;
 				background ^= LowContrast;
 				*/
 
-				ushort setTof = cast(ushort) foreground;
-				ushort setTob = cast(ushort) background;
+				ushort setTof = cast(ushort)foreground;
+				ushort setTob = cast(ushort)background;
 
 				// this isn't necessarily right but meh
-				if(background == Color.DEFAULT)
+				if (background == Color.DEFAULT)
 					setTob = Color.black;
-				if(foreground == Color.DEFAULT)
+				if (foreground == Color.DEFAULT)
 					setTof = Color.white;
 
-				if(force == ForceOption.alwaysSend || reverseVideo != this.reverseVideo || foreground != _currentForeground || background != _currentBackground) {
+				if (force == ForceOption.alwaysSend || reverseVideo != this.reverseVideo
+						|| foreground != _currentForeground || background != _currentBackground) {
 					flush(); // if we don't do this now, the buffering can screw up the colors...
-					if(reverseVideo) {
-						if(background == Color.DEFAULT)
+					if (reverseVideo) {
+						if (background == Color.DEFAULT)
 							setTof = Color.black;
 						else
-							setTof = cast(ushort) background | (foreground & Bright);
+							setTof = cast(ushort)background | (foreground & Bright);
 
-						if(background == Color.DEFAULT)
+						if (background == Color.DEFAULT)
 							setTob = Color.white;
 						else
-							setTob = cast(ushort) (foreground & ~Bright);
+							setTob = cast(ushort)(foreground & ~Bright);
 					}
-					SetConsoleTextAttribute(
-						hConsole,
-						cast(ushort)((setTob << 4) | setTof));
+					SetConsoleTextAttribute(hConsole, cast(ushort)((setTob << 4) | setTof));
 				}
 			} else {
 				import std.process;
+
 				// I started using this envvar for my text editor, but now use it elsewhere too
 				// if we aren't set to dark, assume light
 				/*
@@ -829,23 +843,20 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 				}
 				*/
 
-				ushort setTof = cast(ushort) foreground & ~Bright;
-				ushort setTob = cast(ushort) background & ~Bright;
+				ushort setTof = cast(ushort)foreground & ~Bright;
+				ushort setTob = cast(ushort)background & ~Bright;
 
-				if(foreground & Color.DEFAULT)
+				if (foreground & Color.DEFAULT)
 					setTof = 9; // ansi sequence for reset
-				if(background == Color.DEFAULT)
+				if (background == Color.DEFAULT)
 					setTob = 9;
 
 				import std.string;
 
-				if(force == ForceOption.alwaysSend || reverseVideo != this.reverseVideo || foreground != _currentForeground || background != _currentBackground) {
-					writeStringRaw(format("\033[%dm\033[3%dm\033[4%dm\033[%dm",
-						(foreground != Color.DEFAULT && (foreground & Bright)) ? 1 : 0,
-						cast(int) setTof,
-						cast(int) setTob,
-						reverseVideo ? 7 : 27
-					));
+				if (force == ForceOption.alwaysSend || reverseVideo != this.reverseVideo
+						|| foreground != _currentForeground || background != _currentBackground) {
+					writeStringRaw(format("\033[%dm\033[3%dm\033[4%dm\033[%dm", (foreground != Color.DEFAULT
+							&& (foreground & Bright)) ? 1 : 0, cast(int)setTof, cast(int)setTob, reverseVideo ? 7 : 27));
 				}
 			}
 		}
@@ -859,10 +870,10 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// Note: the Windows console does not support underlining
 	void underline(bool set, ForceOption force = ForceOption.automatic) {
-		if(set == _underlined && force != ForceOption.alwaysSend)
+		if (set == _underlined && force != ForceOption.alwaysSend)
 			return;
-		version(Posix) {
-			if(set)
+		version (Posix) {
+			if (set)
 				writeStringRaw("\033[4m");
 			else
 				writeStringRaw("\033[24m");
@@ -873,10 +884,8 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// Returns the terminal to normal output colors
 	void reset() {
-		version(Windows)
-			SetConsoleTextAttribute(
-				hConsole,
-				originalSbi.wAttributes);
+		version (Windows)
+			SetConsoleTextAttribute(hConsole, originalSbi.wAttributes);
 		else
 			writeStringRaw("\033[0m");
 
@@ -903,16 +912,17 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// Moves the output cursor to the given position. (0, 0) is the upper left corner of the screen. The force parameter can be used to force an update, even if Terminal doesn't think it is necessary
 	void moveTo(int x, int y, ForceOption force = ForceOption.automatic) {
-		if(force != ForceOption.neverSend && (force == ForceOption.alwaysSend || x != _cursorX || y != _cursorY)) {
+		if (force != ForceOption.neverSend && (force == ForceOption.alwaysSend || x != _cursorX || y != _cursorY)) {
 			executeAutoHideCursor();
-			version(Posix) {
+			version (Posix) {
 				doTermcap("cm", y, x);
-			} else version(Windows) {
+			} else version (Windows) {
 
 				flush(); // if we don't do this now, the buffering can screw up the position
-				COORD coord = {cast(short) x, cast(short) y};
+				COORD coord = {cast(short)x, cast(short)y};
 				SetConsoleCursorPosition(hConsole, coord);
-			} else static assert(0);
+			} else
+				static assert(0);
 		}
 
 		_cursorX = x;
@@ -921,7 +931,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// shows the cursor
 	void showCursor() {
-		version(Posix)
+		version (Posix)
 			doTermcap("ve");
 		else {
 			CONSOLE_CURSOR_INFO info;
@@ -933,7 +943,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// hides the cursor
 	void hideCursor() {
-		version(Posix) {
+		version (Posix) {
 			doTermcap("vi");
 		} else {
 			CONSOLE_CURSOR_INFO info;
@@ -954,10 +964,10 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	}
 
 	private void executeAutoHideCursor() {
-		if(autoHidingCursor) {
-			version(Windows)
+		if (autoHidingCursor) {
+			version (Windows)
 				hideCursor();
-			else version(Posix) {
+			else version (Posix) {
 				// prepend the hide cursor command so it is the first thing flushed
 				writeBuffer = "\033[?25l" ~ writeBuffer;
 			}
@@ -970,7 +980,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	// explicitly not publicly documented
 	// Shows the cursor if it was automatically hidden by autoHideCursor and resets the internal auto hide state.
 	void autoShowCursor() {
-		if(autoHiddenCursor)
+		if (autoHiddenCursor)
 			showCursor();
 
 		autoHidingCursor = false;
@@ -989,11 +999,12 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// Changes the terminal's title
 	void setTitle(string t) {
-		version(Windows) {
+		version (Windows) {
 			SetConsoleTitleA(toStringz(t));
 		} else {
 			import std.string;
-			if(terminalInFamily("xterm", "rxvt", "screen"))
+
+			if (terminalInFamily("xterm", "rxvt", "screen"))
 				writeStringRaw(format("\033]0;%s\007", t));
 		}
 	}
@@ -1001,28 +1012,29 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	/// Flushes your updates to the terminal.
 	/// It is important to call this when you are finished writing for now if you are using the version=with_eventloop
 	void flush() {
-		if(writeBuffer.length == 0)
+		if (writeBuffer.length == 0)
 			return;
 
-		version(Posix) {
-			if(_writeDelegate !is null) {
+		version (Posix) {
+			if (_writeDelegate !is null) {
 				_writeDelegate(writeBuffer);
 			} else {
 				ssize_t written;
 
-				while(writeBuffer.length) {
+				while (writeBuffer.length) {
 					written = unix.write(this.fdOut, writeBuffer.ptr, writeBuffer.length);
-					if(written < 0)
+					if (written < 0)
 						throw new Exception("write failed for some reason");
 					writeBuffer = writeBuffer[written .. $];
 				}
 			}
-		} else version(Windows) {
+		} else version (Windows) {
 			import std.conv;
+
 			// FIXME: I'm not sure I'm actually happy with this allocation but
 			// it probably isn't a big deal. At least it has unicode support now.
 			wstring writeBufferw = to!wstring(writeBuffer);
-			while(writeBufferw.length) {
+			while (writeBufferw.length) {
 				DWORD written;
 				WriteConsoleW(hConsole, writeBufferw.ptr, writeBufferw.length, &written, null);
 				writeBufferw = writeBufferw[written .. $];
@@ -1033,22 +1045,23 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	}
 
 	int[] getSize() {
-		version(Windows) {
+		version (Windows) {
 			CONSOLE_SCREEN_BUFFER_INFO info;
-			GetConsoleScreenBufferInfo( hConsole, &info );
-        
+			GetConsoleScreenBufferInfo(hConsole, &info);
+
 			int cols, rows;
-        
+
 			cols = (info.srWindow.Right - info.srWindow.Left + 1);
 			rows = (info.srWindow.Bottom - info.srWindow.Top + 1);
 
 			return [cols, rows];
 		} else {
-			if(getSizeOverride is null) {
+			if (getSizeOverride is null) {
 				winsize w;
 				ioctl(0, TIOCGWINSZ, &w);
 				return [w.ws_col, w.ws_row];
-			} else return getSizeOverride();
+			} else
+				return getSizeOverride();
 		}
 	}
 
@@ -1063,14 +1076,14 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 	/// The current width of the terminal (the number of columns)
 	@property int width() {
-		if(_width == 0 || _height == 0)
+		if (_width == 0 || _height == 0)
 			updateSize();
 		return _width;
 	}
 
 	/// The current height of the terminal (the number of rows)
 	@property int height() {
-		if(_width == 0 || _height == 0)
+		if (_width == 0 || _height == 0)
 			updateSize();
 		return _height;
 	}
@@ -1086,6 +1099,7 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	/// Writes to the terminal at the current cursor position.
 	void writef(T...)(string f, T t) {
 		import std.string;
+
 		writePrintableString(format(f, t));
 	}
 
@@ -1097,8 +1111,9 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	/// ditto
 	void write(T...)(T t) {
 		import std.conv;
+
 		string data;
-		foreach(arg; t) {
+		foreach (arg; t) {
 			data ~= to!string(arg);
 		}
 
@@ -1137,30 +1152,30 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 		// assert(s.indexOf("\033") == -1);
 
 		// tracking cursor position
-		foreach(ch; s) {
-			switch(ch) {
-				case '\n':
-					_cursorX = 0;
-					_cursorY++;
+		foreach (ch; s) {
+			switch (ch) {
+			case '\n':
+				_cursorX = 0;
+				_cursorY++;
 				break;
-				case '\r':
-					_cursorX = 0;
+			case '\r':
+				_cursorX = 0;
 				break;
-				case '\t':
-					_cursorX ++;
-					_cursorX += _cursorX % 8; // FIXME: get the actual tabstop, if possible
+			case '\t':
+				_cursorX++;
+				_cursorX += _cursorX % 8; // FIXME: get the actual tabstop, if possible
 				break;
-				default:
-					if(ch <= 127) // way of only advancing once per dchar instead of per code unit
-						_cursorX++;
+			default:
+				if (ch <= 127) // way of only advancing once per dchar instead of per code unit
+					_cursorX++;
 			}
 
-			if(_wrapAround && _cursorX > width) {
+			if (_wrapAround && _cursorX > width) {
 				_cursorX = 0;
 				_cursorY++;
 			}
 
-			if(_cursorY == height)
+			if (_cursorY == height)
 				_cursorY--;
 
 			/+
@@ -1174,27 +1189,30 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 		writeStringRaw(s);
 	}
 
-	/* private */ bool _wrapAround = true;
+	/* private */
+	bool _wrapAround = true;
 
 	deprecated alias writePrintableString writeString; /// use write() or writePrintableString instead
 
 	private string writeBuffer;
 
 	// you really, really shouldn't use this unless you know what you are doing
-	/*private*/ void writeStringRaw(in char[] s) {
+	/*private*/
+	void writeStringRaw(in char[] s) {
 		// FIXME: make sure all the data is sent, check for errors
-		version(Posix) {
+		version (Posix) {
 			writeBuffer ~= s; // buffer it to do everything at once in flush() calls
-		} else version(Windows) {
+		} else version (Windows) {
 			writeBuffer ~= s;
-		} else static assert(0);
+		} else
+			static assert(0);
 	}
 
 	/// Clears the screen.
 	void clear() {
-		version(Posix) {
+		version (Posix) {
 			doTermcap("cl");
-		} else version(Windows) {
+		} else version (Windows) {
 			// http://support.microsoft.com/kb/99261
 			flush();
 
@@ -1217,13 +1235,13 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 	/// You really shouldn't call this if stdin isn't actually a user-interactive terminal! So if you expect people to pipe data to your app, check for that or use something else.
 	// FIXME: add a method to make it easy to check if stdin is actually a tty and use other methods there.
 	string getline(string prompt = null) {
-		if(lineGetter is null)
+		if (lineGetter is null)
 			lineGetter = new LineGetter(&this);
 		// since the struct might move (it shouldn't, this should be unmovable!) but since
 		// it technically might, I'm updating the pointer before using it just in case.
 		lineGetter.terminal = &this;
 
-		if(prompt !is null)
+		if (prompt !is null)
 			lineGetter.prompt = prompt;
 
 		auto input = RealTimeConsoleInput(&this, ConsoleInputFlags.raw);
@@ -1272,7 +1290,7 @@ struct RealTimeConsoleInput {
 	@disable this();
 	@disable this(this);
 
-	version(Posix) {
+	version (Posix) {
 		private int fdOut;
 		private int fdIn;
 		private sigaction_t oldSigWinch;
@@ -1285,7 +1303,7 @@ struct RealTimeConsoleInput {
 		// so this hack is just to give some room for that to happen without destroying the rest of the world
 	}
 
-	version(Windows) {
+	version (Windows) {
 		private DWORD oldInput;
 		private DWORD oldOutput;
 		HANDLE inputHandle;
@@ -1300,24 +1318,23 @@ struct RealTimeConsoleInput {
 		this.flags = flags;
 		this.terminal = terminal;
 
-		version(Windows) {
+		version (Windows) {
 			inputHandle = GetStdHandle(STD_INPUT_HANDLE);
 
 			GetConsoleMode(inputHandle, &oldInput);
 
 			DWORD mode = 0;
-			mode |= ENABLE_PROCESSED_INPUT /* 0x01 */; // this gives Ctrl+C which we probably want to be similar to linux
+			mode |= ENABLE_PROCESSED_INPUT /* 0x01 */ ; // this gives Ctrl+C which we probably want to be similar to linux
 			//if(flags & ConsoleInputFlags.size)
-			mode |= ENABLE_WINDOW_INPUT /* 0208 */; // gives size etc
-			if(flags & ConsoleInputFlags.echo)
+			mode |= ENABLE_WINDOW_INPUT /* 0208 */ ; // gives size etc
+			if (flags & ConsoleInputFlags.echo)
 				mode |= ENABLE_ECHO_INPUT; // 0x4
-			if(flags & ConsoleInputFlags.mouse)
+			if (flags & ConsoleInputFlags.mouse)
 				mode |= ENABLE_MOUSE_INPUT; // 0x10
 			// if(flags & ConsoleInputFlags.raw) // FIXME: maybe that should be a separate flag for ENABLE_LINE_INPUT
 
 			SetConsoleMode(inputHandle, mode);
 			destructor ~= { SetConsoleMode(inputHandle, oldInput); };
-
 
 			GetConsoleMode(terminal.hConsole, &oldOutput);
 			mode = 0;
@@ -1330,16 +1347,16 @@ struct RealTimeConsoleInput {
 			// FIXME: change to UTF8 as well
 		}
 
-		version(Posix) {
+		version (Posix) {
 			this.fdIn = terminal.fdIn;
 			this.fdOut = terminal.fdOut;
 
-			if(fdIn != -1) {
+			if (fdIn != -1) {
 				tcgetattr(fdIn, &old);
 				auto n = old;
 
 				auto f = ICANON;
-				if(!(flags & ConsoleInputFlags.echo))
+				if (!(flags & ConsoleInputFlags.echo))
 					f |= ECHO;
 
 				n.c_lflag &= ~f;
@@ -1349,36 +1366,37 @@ struct RealTimeConsoleInput {
 			// some weird bug breaks this, https://github.com/robik/ConsoleD/issues/3
 			//destructor ~= { tcsetattr(fdIn, TCSANOW, &old); };
 
-			if(flags & ConsoleInputFlags.size) {
+			if (flags & ConsoleInputFlags.size) {
 				import core.sys.posix.signal;
+
 				sigaction_t n;
 				n.sa_handler = &sizeSignalHandler;
-				n.sa_mask = cast(sigset_t) 0;
+				n.sa_mask = cast(sigset_t)0;
 				n.sa_flags = 0;
 				sigaction(SIGWINCH, &n, &oldSigWinch);
 			}
 
 			{
 				import core.sys.posix.signal;
+
 				sigaction_t n;
 				n.sa_handler = &interruptSignalHandler;
-				n.sa_mask = cast(sigset_t) 0;
+				n.sa_mask = cast(sigset_t)0;
 				n.sa_flags = 0;
 				sigaction(SIGINT, &n, &oldSigIntr);
 			}
 
 			{
 				import core.sys.posix.signal;
+
 				sigaction_t n;
 				n.sa_handler = &hangupSignalHandler;
-				n.sa_mask = cast(sigset_t) 0;
+				n.sa_mask = cast(sigset_t)0;
 				n.sa_flags = 0;
 				sigaction(SIGHUP, &n, &oldHupIntr);
 			}
 
-
-
-			if(flags & ConsoleInputFlags.mouse) {
+			if (flags & ConsoleInputFlags.mouse) {
 				// basic button press+release notification
 
 				// FIXME: try to get maximum capabilities from all terminals
@@ -1391,43 +1409,45 @@ struct RealTimeConsoleInput {
 				// doesn't work there, breaking mouse support entirely. So by setting
 				// MOUSE_HACK=1002 it tells us to use the other mode for a fallback.
 				import std.process : environment;
-				if(terminal.terminalInFamily("xterm") && environment.get("MOUSE_HACK") != "1002") {
+
+				if (terminal.terminalInFamily("xterm") && environment.get("MOUSE_HACK") != "1002") {
 					// this is vt200 mouse with full motion tracking, supported by xterm
 					terminal.writeStringRaw("\033[?1003h");
 					destructor ~= { terminal.writeStringRaw("\033[?1003l"); };
-				} else if(terminal.terminalInFamily("rxvt", "screen") || environment.get("MOUSE_HACK") == "1002") {
+				} else if (terminal.terminalInFamily("rxvt", "screen") || environment.get("MOUSE_HACK") == "1002") {
 					terminal.writeStringRaw("\033[?1002h"); // this is vt200 mouse with press/release and motion notification iff buttons are pressed
 					destructor ~= { terminal.writeStringRaw("\033[?1002l"); };
 				}
 			}
-			if(flags & ConsoleInputFlags.paste) {
-				if(terminal.terminalInFamily("xterm", "rxvt", "screen")) {
+			if (flags & ConsoleInputFlags.paste) {
+				if (terminal.terminalInFamily("xterm", "rxvt", "screen")) {
 					terminal.writeStringRaw("\033[?2004h"); // bracketed paste mode
 					destructor ~= { terminal.writeStringRaw("\033[?2004l"); };
 				}
 			}
 
 			// try to ensure the terminal is in UTF-8 mode
-			if(terminal.terminalInFamily("xterm", "screen", "linux") && !terminal.isMacTerminal()) {
+			if (terminal.terminalInFamily("xterm", "screen", "linux") && !terminal.isMacTerminal()) {
 				terminal.writeStringRaw("\033%G");
 			}
 
 			terminal.flush();
 		}
 
-
-		version(with_eventloop) {
+		version (with_eventloop) {
 			import arsd.eventloop;
-			version(Windows)
+
+			version (Windows)
 				auto listenTo = inputHandle;
-			else version(Posix)
+			else version (Posix)
 				auto listenTo = this.fdIn;
-			else static assert(0, "idk about this OS");
+			else
+				static assert(0, "idk about this OS");
 
-			version(Posix)
-			addListener(&signalFired);
+			version (Posix)
+				addListener(&signalFired);
 
-			if(listenTo != -1) {
+			if (listenTo != -1) {
 				addFileEventListeners(listenTo, &eventListener, null, null);
 				destructor ~= { removeFileEventListeners(listenTo); };
 			}
@@ -1436,37 +1456,37 @@ struct RealTimeConsoleInput {
 		}
 	}
 
-	version(with_eventloop) {
-		version(Posix)
-		void signalFired(SignalFired) {
-			if(interrupted) {
+	version (with_eventloop) {
+		version (Posix) void signalFired(SignalFired) {
+			if (interrupted) {
 				interrupted = false;
 				send(InputEvent(UserInterruptionEvent(), terminal));
 			}
-			if(windowSizeChanged)
+			if (windowSizeChanged)
 				send(checkWindowSizeChanged());
-			if(hangedUp) {
+			if (hangedUp) {
 				hangedUp = false;
 				send(InputEvent(HangupEvent(), terminal));
 			}
 		}
 
 		import arsd.eventloop;
+
 		void eventListener(OsFileHandle fd) {
 			auto queue = readNextEvents();
-			foreach(event; queue)
+			foreach (event; queue)
 				send(event);
 		}
 	}
 
 	~this() {
 		// the delegate thing doesn't actually work for this... for some reason
-		version(Posix)
-			if(fdIn != -1)
+		version (Posix)
+			if (fdIn != -1)
 				tcsetattr(fdIn, TCSANOW, &old);
 
-		version(Posix) {
-			if(flags & ConsoleInputFlags.size) {
+		version (Posix) {
+			if (flags & ConsoleInputFlags.size) {
 				// restoration
 				sigaction(SIGWINCH, &oldSigWinch, null);
 			}
@@ -1475,7 +1495,7 @@ struct RealTimeConsoleInput {
 		}
 
 		// we're just undoing everything the constructor did, in reverse order, same criteria
-		foreach_reverse(d; destructor)
+		foreach_reverse (d; destructor)
 			d();
 	}
 
@@ -1490,7 +1510,7 @@ struct RealTimeConsoleInput {
 	bool kbhit() {
 		auto got = getch(true);
 
-		if(got == dchar.init)
+		if (got == dchar.init)
 			return false;
 
 		getchBuffer = got;
@@ -1499,13 +1519,13 @@ struct RealTimeConsoleInput {
 
 	/// Check for input, waiting no longer than the number of milliseconds
 	bool timedCheckForInput(int milliseconds) {
-		version(Windows) {
+		version (Windows) {
 			auto response = WaitForSingleObject(terminal.hConsole, milliseconds);
-			if(response  == 0)
+			if (response == 0)
 				return true; // the object is ready
 			return false;
-		} else version(Posix) {
-			if(fdIn == -1)
+		} else version (Posix) {
+			if (fdIn == -1)
 				return false;
 
 			timeval tv;
@@ -1523,10 +1543,10 @@ struct RealTimeConsoleInput {
 	}
 
 	private bool anyInput_internal() {
-		if(inputQueue.length || timedCheckForInput(0))
+		if (inputQueue.length || timedCheckForInput(0))
 			return true;
-		version(Posix)
-			if(interrupted || windowSizeChanged || hangedUp)
+		version (Posix)
+			if (interrupted || windowSizeChanged || hangedUp)
 				return true;
 		return false;
 	}
@@ -1538,25 +1558,25 @@ struct RealTimeConsoleInput {
 	///
 	/// Be aware that this may return non-character key events, like F1, F2, arrow keys, etc., as private use Unicode characters. Check them against KeyboardEvent.Key if you like.
 	dchar getch(bool nonblocking = false) {
-		if(getchBuffer != dchar.init) {
+		if (getchBuffer != dchar.init) {
 			auto a = getchBuffer;
 			getchBuffer = dchar.init;
 			return a;
 		}
 
-		if(nonblocking && !anyInput_internal())
+		if (nonblocking && !anyInput_internal())
 			return dchar.init;
 
 		auto event = nextEvent();
-		while(event.type != InputEvent.Type.KeyboardEvent || event.keyboardEvent.pressed == false) {
-			if(event.type == InputEvent.Type.UserInterruptionEvent)
+		while (event.type != InputEvent.Type.KeyboardEvent || event.keyboardEvent.pressed == false) {
+			if (event.type == InputEvent.Type.UserInterruptionEvent)
 				throw new UserInterruptionException();
-			if(event.type == InputEvent.Type.HangupEvent)
+			if (event.type == InputEvent.Type.HangupEvent)
 				throw new HangupException();
-			if(event.type == InputEvent.Type.EndOfFileEvent)
+			if (event.type == InputEvent.Type.EndOfFileEvent)
 				return dchar.init;
 
-			if(nonblocking && !anyInput_internal())
+			if (nonblocking && !anyInput_internal())
 				return dchar.init;
 
 			event = nextEvent();
@@ -1566,61 +1586,59 @@ struct RealTimeConsoleInput {
 
 	//char[128] inputBuffer;
 	//int inputBufferPosition;
-	version(Posix)
-	int nextRaw(bool interruptable = false) {
-		if(fdIn == -1)
+	version (Posix) int nextRaw(bool interruptable = false) {
+		if (fdIn == -1)
 			return 0;
 
 		char[1] buf;
-		try_again:
+	try_again:
 		auto ret = read(fdIn, buf.ptr, buf.length);
-		if(ret == 0)
+		if (ret == 0)
 			return 0; // input closed
-		if(ret == -1) {
+		if (ret == -1) {
 			import core.stdc.errno;
-			if(errno == EINTR)
-				// interrupted by signal call, quite possibly resize or ctrl+c which we want to check for in the event loop
-				if(interruptable)
+
+			if (errno == EINTR) // interrupted by signal call, quite possibly resize or ctrl+c which we want to check for in the event loop
+				if (interruptable)
 					return -1;
 				else
 					goto try_again;
 			else
-				throw new Exception("read failed");
+						throw new Exception("read failed");
 		}
 
 		//terminal.writef("RAW READ: %d\n", buf[0]);
 
-		if(ret == 1)
+		if (ret == 1)
 			return inputPrefilter ? inputPrefilter(buf[0]) : buf[0];
 		else
 			assert(0); // read too much, should be impossible
 	}
 
-	version(Posix)
-		int delegate(char) inputPrefilter;
+	version (Posix) int delegate(char) inputPrefilter;
 
-	version(Posix)
-	dchar nextChar(int starting) {
-		if(starting <= 127)
-			return cast(dchar) starting;
+	version (Posix) dchar nextChar(int starting) {
+		if (starting <= 127)
+			return cast(dchar)starting;
 		char[6] buffer;
 		int pos = 0;
-		buffer[pos++] = cast(char) starting;
+		buffer[pos++] = cast(char)starting;
 
 		// see the utf-8 encoding for details
 		int remaining = 0;
 		ubyte magic = starting & 0xff;
-		while(magic & 0b1000_000) {
+		while (magic & 0b1000_000) {
 			remaining++;
 			magic <<= 1;
 		}
 
-		while(remaining && pos < buffer.length) {
-			buffer[pos++] = cast(char) nextRaw();
+		while (remaining && pos < buffer.length) {
+			buffer[pos++] = cast(char)nextRaw();
 			remaining--;
 		}
 
 		import std.utf;
+
 		size_t throwAway; // it insists on the index but we don't care
 		return decode(buffer[], throwAway);
 	}
@@ -1629,11 +1647,10 @@ struct RealTimeConsoleInput {
 		auto oldWidth = terminal.width;
 		auto oldHeight = terminal.height;
 		terminal.updateSize();
-		version(Posix)
-		windowSizeChanged = false;
+		version (Posix)
+			windowSizeChanged = false;
 		return InputEvent(SizeChangedEvent(oldWidth, oldHeight, terminal.width, terminal.height), terminal);
 	}
-
 
 	// character event
 	// non-character key event
@@ -1648,32 +1665,32 @@ struct RealTimeConsoleInput {
 	/// require the module arsd.eventloop (Linux only at this point)
 	InputEvent nextEvent() {
 		terminal.flush();
-		if(inputQueue.length) {
+		if (inputQueue.length) {
 			auto e = inputQueue[0];
 			inputQueue = inputQueue[1 .. $];
 			return e;
 		}
 
-		wait_for_more:
-		version(Posix)
-		if(interrupted) {
-			interrupted = false;
-			return InputEvent(UserInterruptionEvent(), terminal);
-		}
+	wait_for_more:
+		version (Posix)
+			if (interrupted) {
+				interrupted = false;
+				return InputEvent(UserInterruptionEvent(), terminal);
+			}
 
-		version(Posix)
-		if(hangedUp) {
-			hangedUp = false;
-			return InputEvent(HangupEvent(), terminal);
-		}
+		version (Posix)
+			if (hangedUp) {
+				hangedUp = false;
+				return InputEvent(HangupEvent(), terminal);
+			}
 
-		version(Posix)
-		if(windowSizeChanged) {
-			return checkWindowSizeChanged();
-		}
+		version (Posix)
+			if (windowSizeChanged) {
+				return checkWindowSizeChanged();
+			}
 
 		auto more = readNextEvents();
-		if(!more.length)
+		if (!more.length)
 			goto wait_for_more; // i used to do a loop (readNextEvents can read something, but it might be discarded by the input filter) but now it goto's above because readNextEvents might be interrupted by a SIGWINCH aka size event so we want to check that at least
 
 		assert(more.length);
@@ -1684,145 +1701,147 @@ struct RealTimeConsoleInput {
 	}
 
 	InputEvent* peekNextEvent() {
-		if(inputQueue.length)
+		if (inputQueue.length)
 			return &(inputQueue[0]);
 		return null;
 	}
 
-	enum InjectionPosition { head, tail }
+	enum InjectionPosition {
+		head,
+		tail
+	}
+
 	void injectEvent(InputEvent ev, InjectionPosition where) {
-		final switch(where) {
-			case InjectionPosition.head:
-				inputQueue = ev ~ inputQueue;
+		final switch (where) {
+		case InjectionPosition.head:
+			inputQueue = ev ~ inputQueue;
 			break;
-			case InjectionPosition.tail:
-				inputQueue ~= ev;
+		case InjectionPosition.tail:
+			inputQueue ~= ev;
 			break;
 		}
 	}
 
 	InputEvent[] inputQueue;
 
-	version(Windows)
-	InputEvent[] readNextEvents() {
+	version (Windows) InputEvent[] readNextEvents() {
 		terminal.flush(); // make sure all output is sent out before waiting for anything
 
 		INPUT_RECORD[32] buffer;
 		DWORD actuallyRead;
-			// FIXME: ReadConsoleInputW
+		// FIXME: ReadConsoleInputW
 		auto success = ReadConsoleInputA(inputHandle, buffer.ptr, buffer.length, &actuallyRead);
-		if(success == 0)
+		if (success == 0)
 			throw new Exception("ReadConsoleInput");
 
 		InputEvent[] newEvents;
-		input_loop: foreach(record; buffer[0 .. actuallyRead]) {
-			switch(record.EventType) {
-				case KEY_EVENT:
-					auto ev = record.KeyEvent;
-					KeyboardEvent ke;
-					CharacterEvent e;
-					NonCharacterKeyEvent ne;
+		input_loop: foreach (record; buffer[0 .. actuallyRead]) {
+			switch (record.EventType) {
+			case KEY_EVENT:
+				auto ev = record.KeyEvent;
+				KeyboardEvent ke;
+				CharacterEvent e;
+				NonCharacterKeyEvent ne;
 
-					e.eventType = ev.bKeyDown ? CharacterEvent.Type.Pressed : CharacterEvent.Type.Released;
-					ne.eventType = ev.bKeyDown ? NonCharacterKeyEvent.Type.Pressed : NonCharacterKeyEvent.Type.Released;
+				e.eventType = ev.bKeyDown ? CharacterEvent.Type.Pressed : CharacterEvent.Type.Released;
+				ne.eventType = ev.bKeyDown ? NonCharacterKeyEvent.Type.Pressed : NonCharacterKeyEvent.Type.Released;
 
-					ke.pressed = ev.bKeyDown ? true : false;
+				ke.pressed = ev.bKeyDown ? true : false;
 
-					// only send released events when specifically requested
-					if(!(flags & ConsoleInputFlags.releasedKeys) && !ev.bKeyDown)
-						break;
+				// only send released events when specifically requested
+				if (!(flags & ConsoleInputFlags.releasedKeys) && !ev.bKeyDown)
+					break;
 
-					e.modifierState = ev.dwControlKeyState;
-					ne.modifierState = ev.dwControlKeyState;
-					ke.modifierState = ev.dwControlKeyState;
+				e.modifierState = ev.dwControlKeyState;
+				ne.modifierState = ev.dwControlKeyState;
+				ke.modifierState = ev.dwControlKeyState;
 
-					if(ev.UnicodeChar) {
-						// new style event goes first
-						ke.which = cast(dchar) cast(wchar) ev.UnicodeChar;
-						newEvents ~= InputEvent(ke, terminal);
+				if (ev.UnicodeChar) {
+					// new style event goes first
+					ke.which = cast(dchar)cast(wchar)ev.UnicodeChar;
+					newEvents ~= InputEvent(ke, terminal);
 
-						// old style event then follows as the fallback
-						e.character = cast(dchar) cast(wchar) ev.UnicodeChar;
-						newEvents ~= InputEvent(e, terminal);
-					} else {
-						// old style event
-						ne.key = cast(NonCharacterKeyEvent.Key) ev.wVirtualKeyCode;
-
-						// new style event. See comment on KeyboardEvent.Key
-						ke.which = cast(KeyboardEvent.Key) (ev.wVirtualKeyCode + 0xF0000);
-
-						// FIXME: make this better. the goal is to make sure the key code is a valid enum member
-						// Windows sends more keys than Unix and we're doing lowest common denominator here
-						foreach(member; __traits(allMembers, NonCharacterKeyEvent.Key))
-							if(__traits(getMember, NonCharacterKeyEvent.Key, member) == ne.key) {
-								newEvents ~= InputEvent(ke, terminal);
-								newEvents ~= InputEvent(ne, terminal);
-								break;
-							}
-					}
-				break;
-				case MOUSE_EVENT:
-					auto ev = record.MouseEvent;
-					MouseEvent e;
-
-					e.modifierState = ev.dwControlKeyState;
-					e.x = ev.dwMousePosition.X;
-					e.y = ev.dwMousePosition.Y;
-
-					switch(ev.dwEventFlags) {
-						case 0:
-							//press or release
-							e.eventType = MouseEvent.Type.Pressed;
-							static DWORD lastButtonState;
-							auto lastButtonState2 = lastButtonState;
-							e.buttons = ev.dwButtonState;
-							lastButtonState = e.buttons;
-
-							// this is sent on state change. if fewer buttons are pressed, it must mean released
-							if(cast(DWORD) e.buttons < lastButtonState2) {
-								e.eventType = MouseEvent.Type.Released;
-								// if last was 101 and now it is 100, then button far right was released
-								// so we flip the bits, ~100 == 011, then and them: 101 & 011 == 001, the
-								// button that was released
-								e.buttons = lastButtonState2 & ~e.buttons;
-							}
-						break;
-						case MOUSE_MOVED:
-							e.eventType = MouseEvent.Type.Moved;
-							e.buttons = ev.dwButtonState;
-						break;
-						case 0x0004/*MOUSE_WHEELED*/:
-							e.eventType = MouseEvent.Type.Pressed;
-							if(ev.dwButtonState > 0)
-								e.buttons = MouseEvent.Button.ScrollDown;
-							else
-								e.buttons = MouseEvent.Button.ScrollUp;
-						break;
-						default:
-							continue input_loop;
-					}
-
+					// old style event then follows as the fallback
+					e.character = cast(dchar)cast(wchar)ev.UnicodeChar;
 					newEvents ~= InputEvent(e, terminal);
+				} else {
+					// old style event
+					ne.key = cast(NonCharacterKeyEvent.Key)ev.wVirtualKeyCode;
+
+					// new style event. See comment on KeyboardEvent.Key
+					ke.which = cast(KeyboardEvent.Key)(ev.wVirtualKeyCode + 0xF0000);
+
+					// FIXME: make this better. the goal is to make sure the key code is a valid enum member
+					// Windows sends more keys than Unix and we're doing lowest common denominator here
+					foreach (member; __traits(allMembers, NonCharacterKeyEvent.Key))
+						if (__traits(getMember, NonCharacterKeyEvent.Key, member) == ne.key) {
+							newEvents ~= InputEvent(ke, terminal);
+							newEvents ~= InputEvent(ne, terminal);
+							break;
+						}
+				}
 				break;
-				case WINDOW_BUFFER_SIZE_EVENT:
-					auto ev = record.WindowBufferSizeEvent;
-					auto oldWidth = terminal.width;
-					auto oldHeight = terminal.height;
-					terminal._width = ev.dwSize.X;
-					terminal._height = ev.dwSize.Y;
-					newEvents ~= InputEvent(SizeChangedEvent(oldWidth, oldHeight, terminal.width, terminal.height), terminal);
+			case MOUSE_EVENT:
+				auto ev = record.MouseEvent;
+				MouseEvent e;
+
+				e.modifierState = ev.dwControlKeyState;
+				e.x = ev.dwMousePosition.X;
+				e.y = ev.dwMousePosition.Y;
+
+				switch (ev.dwEventFlags) {
+				case 0:
+					//press or release
+					e.eventType = MouseEvent.Type.Pressed;
+					static DWORD lastButtonState;
+					auto lastButtonState2 = lastButtonState;
+					e.buttons = ev.dwButtonState;
+					lastButtonState = e.buttons;
+
+					// this is sent on state change. if fewer buttons are pressed, it must mean released
+					if (cast(DWORD)e.buttons < lastButtonState2) {
+						e.eventType = MouseEvent.Type.Released;
+						// if last was 101 and now it is 100, then button far right was released
+						// so we flip the bits, ~100 == 011, then and them: 101 & 011 == 001, the
+						// button that was released
+						e.buttons = lastButtonState2 & ~e.buttons;
+					}
+					break;
+				case MOUSE_MOVED:
+					e.eventType = MouseEvent.Type.Moved;
+					e.buttons = ev.dwButtonState;
+					break;
+				case 0x0004 /*MOUSE_WHEELED*/ :
+					e.eventType = MouseEvent.Type.Pressed;
+					if (ev.dwButtonState > 0)
+						e.buttons = MouseEvent.Button.ScrollDown;
+					else
+						e.buttons = MouseEvent.Button.ScrollUp;
+					break;
+				default:
+					continue input_loop;
+				}
+
+				newEvents ~= InputEvent(e, terminal);
+				break;
+			case WINDOW_BUFFER_SIZE_EVENT:
+				auto ev = record.WindowBufferSizeEvent;
+				auto oldWidth = terminal.width;
+				auto oldHeight = terminal.height;
+				terminal._width = ev.dwSize.X;
+				terminal._height = ev.dwSize.Y;
+				newEvents ~= InputEvent(SizeChangedEvent(oldWidth, oldHeight, terminal.width, terminal.height), terminal);
 				break;
 				// FIXME: can we catch ctrl+c here too?
-				default:
-					// ignore
+			default:
+				// ignore
 			}
 		}
 
 		return newEvents;
 	}
 
-	version(Posix)
-	InputEvent[] readNextEvents() {
+	version (Posix) InputEvent[] readNextEvents() {
 		terminal.flush(); // make sure all output is sent out before we try to get input
 
 		// we want to starve the read, especially if we're called from an edge-triggered
@@ -1834,53 +1853,47 @@ struct RealTimeConsoleInput {
 		// it is the simplest thing that can possibly work. The alternative would be
 		// doing non-blocking reads and buffering in the nextRaw function (not a bad idea
 		// btw, just a bit more of a hassle).
-		while(timedCheckForInput(0)) {
+		while (timedCheckForInput(0)) {
 			auto ne = readNextEventsHelper();
 			initial ~= ne;
-			foreach(n; ne)
-				if(n.type == InputEvent.Type.EndOfFileEvent)
+			foreach (n; ne)
+				if (n.type == InputEvent.Type.EndOfFileEvent)
 					return initial; // hit end of file, get out of here lest we infinite loop
-					// (select still returns info available even after we read end of file)
+			// (select still returns info available even after we read end of file)
 		}
 		return initial;
 	}
 
 	// The helper reads just one actual event from the pipe...
-	version(Posix)
-	InputEvent[] readNextEventsHelper() {
+	version (Posix) InputEvent[] readNextEventsHelper() {
 		InputEvent[] charPressAndRelease(dchar character) {
-			if((flags & ConsoleInputFlags.releasedKeys))
-				return [
-					// new style event
-					InputEvent(KeyboardEvent(true, character, 0), terminal),
-					InputEvent(KeyboardEvent(false, character, 0), terminal),
-					// old style event
-					InputEvent(CharacterEvent(CharacterEvent.Type.Pressed, character, 0), terminal),
-					InputEvent(CharacterEvent(CharacterEvent.Type.Released, character, 0), terminal),
-				];
-			else return [
-				// new style event
+			if ((flags & ConsoleInputFlags.releasedKeys))
+				return [// new style event
+				InputEvent(KeyboardEvent(true, character, 0), terminal), InputEvent(KeyboardEvent(false,
+						character, 0), terminal),// old style event
+				InputEvent(CharacterEvent(CharacterEvent.Type.Pressed, character, 0),
+						terminal), InputEvent(CharacterEvent(CharacterEvent.Type.Released, character, 0), terminal),];
+			else
+				return [// new style event
 				InputEvent(KeyboardEvent(true, character, 0), terminal),
-				// old style event
-				InputEvent(CharacterEvent(CharacterEvent.Type.Pressed, character, 0), terminal)
-			];
+					// old style event
+					InputEvent(CharacterEvent(CharacterEvent.Type.Pressed, character, 0), terminal)];
 		}
+
 		InputEvent[] keyPressAndRelease(NonCharacterKeyEvent.Key key, uint modifiers = 0) {
-			if((flags & ConsoleInputFlags.releasedKeys))
-				return [
-					// new style event FIXME: when the old events are removed, kill the +0xF0000 from here!
-					InputEvent(KeyboardEvent(true, cast(dchar)(key) + 0xF0000, modifiers), terminal),
+			if ((flags & ConsoleInputFlags.releasedKeys))
+				return [// new style event FIXME: when the old events are removed, kill the +0xF0000 from here!
+				InputEvent(KeyboardEvent(true, cast(dchar)(key) + 0xF0000, modifiers), terminal),
 					InputEvent(KeyboardEvent(false, cast(dchar)(key) + 0xF0000, modifiers), terminal),
 					// old style event
-					InputEvent(NonCharacterKeyEvent(NonCharacterKeyEvent.Type.Pressed, key, modifiers), terminal),
-					InputEvent(NonCharacterKeyEvent(NonCharacterKeyEvent.Type.Released, key, modifiers), terminal),
-				];
-			else return [
-				// new style event FIXME: when the old events are removed, kill the +0xF0000 from here!
+					InputEvent(NonCharacterKeyEvent(NonCharacterKeyEvent.Type.Pressed,
+							key, modifiers), terminal), InputEvent(NonCharacterKeyEvent(NonCharacterKeyEvent.Type.Released,
+							key, modifiers), terminal),];
+			else
+				return [// new style event FIXME: when the old events are removed, kill the +0xF0000 from here!
 				InputEvent(KeyboardEvent(true, cast(dchar)(key) + 0xF0000, modifiers), terminal),
-				// old style event
-				InputEvent(NonCharacterKeyEvent(NonCharacterKeyEvent.Type.Pressed, key, modifiers), terminal)
-			];
+					// old style event
+					InputEvent(NonCharacterKeyEvent(NonCharacterKeyEvent.Type.Pressed, key, modifiers), terminal)];
 		}
 
 		char[30] sequenceBuffer;
@@ -1891,13 +1904,13 @@ struct RealTimeConsoleInput {
 			sequence[0] = '\033';
 			sequence[1] = '[';
 
-			while(sequenceLength < sequence.length) {
+			while (sequenceLength < sequence.length) {
 				auto n = nextRaw();
-				sequence[sequenceLength++] = cast(char) n;
+				sequence[sequenceLength++] = cast(char)n;
 				// I think a [ is supposed to termiate a CSI sequence
 				// but the Linux console sends CSI[A for F1, so I'm
 				// hacking it to accept that too
-				if(n >= 0x40 && !(sequenceLength == 3 && n == '['))
+				if (n >= 0x40 && !(sequenceLength == 3 && n == '['))
 					break;
 			}
 
@@ -1905,292 +1918,318 @@ struct RealTimeConsoleInput {
 		}
 
 		InputEvent[] translateTermcapName(string cap) {
-			switch(cap) {
+			switch (cap) {
 				//case "k0":
-					//return keyPressAndRelease(NonCharacterKeyEvent.Key.F1);
-				case "k1":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F1);
-				case "k2":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F2);
-				case "k3":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F3);
-				case "k4":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F4);
-				case "k5":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F5);
-				case "k6":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F6);
-				case "k7":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F7);
-				case "k8":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F8);
-				case "k9":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F9);
-				case "k;":
-				case "k0":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F10);
-				case "F1":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F11);
-				case "F2":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.F12);
+				//return keyPressAndRelease(NonCharacterKeyEvent.Key.F1);
+			case "k1":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F1);
+			case "k2":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F2);
+			case "k3":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F3);
+			case "k4":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F4);
+			case "k5":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F5);
+			case "k6":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F6);
+			case "k7":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F7);
+			case "k8":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F8);
+			case "k9":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F9);
+			case "k;":
+			case "k0":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F10);
+			case "F1":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F11);
+			case "F2":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.F12);
 
+			case "kb":
+				return charPressAndRelease('\b');
+			case "kD":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.Delete);
 
-				case "kb":
-					return charPressAndRelease('\b');
-				case "kD":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.Delete);
+			case "kd":
+			case "do":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.DownArrow);
+			case "ku":
+			case "up":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.UpArrow);
+			case "kl":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.LeftArrow);
+			case "kr":
+			case "nd":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.RightArrow);
 
-				case "kd":
-				case "do":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.DownArrow);
-				case "ku":
-				case "up":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.UpArrow);
-				case "kl":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.LeftArrow);
-				case "kr":
-				case "nd":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.RightArrow);
+			case "kN":
+			case "K5":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.PageDown);
+			case "kP":
+			case "K2":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.PageUp);
 
-				case "kN":
-				case "K5":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.PageDown);
-				case "kP":
-				case "K2":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.PageUp);
-
-				case "ho": // this might not be a key but my thing sometimes returns it... weird...
-				case "kh":
-				case "K1":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.Home);
-				case "kH":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.End);
-				case "kI":
-					return keyPressAndRelease(NonCharacterKeyEvent.Key.Insert);
-				default:
-					// don't know it, just ignore
-					//import std.stdio;
-					//writeln(cap);
+			case "ho": // this might not be a key but my thing sometimes returns it... weird...
+			case "kh":
+			case "K1":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.Home);
+			case "kH":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.End);
+			case "kI":
+				return keyPressAndRelease(NonCharacterKeyEvent.Key.Insert);
+			default:
+				// don't know it, just ignore
+				//import std.stdio;
+				//writeln(cap);
 			}
 
 			return null;
 		}
 
-
 		InputEvent[] doEscapeSequence(in char[] sequence) {
-			switch(sequence) {
-				case "\033[200~":
-					// bracketed paste begin
-					// we want to keep reading until
-					// "\033[201~":
-					// and build a paste event out of it
+			switch (sequence) {
+			case "\033[200~":
+				// bracketed paste begin
+				// we want to keep reading until
+				// "\033[201~":
+				// and build a paste event out of it
 
-
-					string data;
-					for(;;) {
-						auto n = nextRaw();
-						if(n == '\033') {
-							n = nextRaw();
-							if(n == '[') {
-								auto esc = readEscapeSequence(sequenceBuffer);
-								if(esc == "\033[201~") {
-									// complete!
-									break;
-								} else {
-									// was something else apparently, but it is pasted, so keep it
-									data ~= esc;
-								}
+				string data;
+				for (;;) {
+					auto n = nextRaw();
+					if (n == '\033') {
+						n = nextRaw();
+						if (n == '[') {
+							auto esc = readEscapeSequence(sequenceBuffer);
+							if (esc == "\033[201~") {
+								// complete!
+								break;
 							} else {
-								data ~= '\033';
-								data ~= cast(char) n;
+								// was something else apparently, but it is pasted, so keep it
+								data ~= esc;
 							}
 						} else {
-							data ~= cast(char) n;
+							data ~= '\033';
+							data ~= cast(char)n;
 						}
-					}
-					return [InputEvent(PasteEvent(data), terminal)];
-				case "\033[M":
-					// mouse event
-					auto buttonCode = nextRaw() - 32;
-						// nextChar is commented because i'm not using UTF-8 mouse mode
-						// cuz i don't think it is as widely supported
-					auto x = cast(int) (/*nextChar*/(nextRaw())) - 33; /* they encode value + 32, but make upper left 1,1. I want it to be 0,0 */
-					auto y = cast(int) (/*nextChar*/(nextRaw())) - 33; /* ditto */
-
-
-					bool isRelease = (buttonCode & 0b11) == 3;
-					int buttonNumber;
-					if(!isRelease) {
-						buttonNumber = (buttonCode & 0b11);
-						if(buttonCode & 64)
-							buttonNumber += 3; // button 4 and 5 are sent as like button 1 and 2, but code | 64
-							// so button 1 == button 4 here
-
-						// note: buttonNumber == 0 means button 1 at this point
-						buttonNumber++; // hence this
-
-
-						// apparently this considers middle to be button 2. but i want middle to be button 3.
-						if(buttonNumber == 2)
-							buttonNumber = 3;
-						else if(buttonNumber == 3)
-							buttonNumber = 2;
-					}
-
-					auto modifiers = buttonCode & (0b0001_1100);
-						// 4 == shift
-						// 8 == meta
-						// 16 == control
-
-					MouseEvent m;
-
-					if(buttonCode & 32)
-						m.eventType = MouseEvent.Type.Moved;
-					else
-						m.eventType = isRelease ? MouseEvent.Type.Released : MouseEvent.Type.Pressed;
-
-					// ugh, if no buttons are pressed, released and moved are indistinguishable...
-					// so we'll count the buttons down, and if we get a release
-					static int buttonsDown = 0;
-					if(!isRelease && buttonNumber <= 3) // exclude wheel "presses"...
-						buttonsDown++;
-
-					if(isRelease && m.eventType != MouseEvent.Type.Moved) {
-						if(buttonsDown)
-							buttonsDown--;
-						else // no buttons down, so this should be a motion instead..
-							m.eventType = MouseEvent.Type.Moved;
-					}
-
-
-					if(buttonNumber == 0)
-						m.buttons = 0; // we don't actually know :(
-					else
-						m.buttons = 1 << (buttonNumber - 1); // I prefer flags so that's how we do it
-					m.x = x;
-					m.y = y;
-					m.modifierState = modifiers;
-
-					return [InputEvent(m, terminal)];
-				default:
-					// look it up in the termcap key database
-					auto cap = terminal.findSequenceInTermcap(sequence);
-					if(cap !is null) {
-						return translateTermcapName(cap);
 					} else {
-						if(terminal.terminalInFamily("xterm")) {
-							import std.conv, std.string;
-							auto terminator = sequence[$ - 1];
-							auto parts = sequence[2 .. $ - 1].split(";");
-							// parts[0] and terminator tells us the key
-							// parts[1] tells us the modifierState
-
-							uint modifierState;
-
-							int modGot;
-							if(parts.length > 1)
-								modGot = to!int(parts[1]);
-							mod_switch: switch(modGot) {
-								case 2: modifierState |= ModifierState.shift; break;
-								case 3: modifierState |= ModifierState.alt; break;
-								case 4: modifierState |= ModifierState.shift | ModifierState.alt; break;
-								case 5: modifierState |= ModifierState.control; break;
-								case 6: modifierState |= ModifierState.shift | ModifierState.control; break;
-								case 7: modifierState |= ModifierState.alt | ModifierState.control; break;
-								case 8: modifierState |= ModifierState.shift | ModifierState.alt | ModifierState.control; break;
-								case 9:
-								..
-								case 16:
-									modifierState |= ModifierState.meta;
-									if(modGot != 9) {
-										modGot -= 8;
-										goto mod_switch;
-									}
-								break;
-
-								// this is an extension in my own terminal emulator
-								case 20:
-								..
-								case 36:
-									modifierState |= ModifierState.windows;
-									modGot -= 20;
-									goto mod_switch;
-								default:
-							}
-
-							switch(terminator) {
-								case 'A': return keyPressAndRelease(NonCharacterKeyEvent.Key.UpArrow, modifierState);
-								case 'B': return keyPressAndRelease(NonCharacterKeyEvent.Key.DownArrow, modifierState);
-								case 'C': return keyPressAndRelease(NonCharacterKeyEvent.Key.RightArrow, modifierState);
-								case 'D': return keyPressAndRelease(NonCharacterKeyEvent.Key.LeftArrow, modifierState);
-
-								case 'H': return keyPressAndRelease(NonCharacterKeyEvent.Key.Home, modifierState);
-								case 'F': return keyPressAndRelease(NonCharacterKeyEvent.Key.End, modifierState);
-
-								case 'P': return keyPressAndRelease(NonCharacterKeyEvent.Key.F1, modifierState);
-								case 'Q': return keyPressAndRelease(NonCharacterKeyEvent.Key.F2, modifierState);
-								case 'R': return keyPressAndRelease(NonCharacterKeyEvent.Key.F3, modifierState);
-								case 'S': return keyPressAndRelease(NonCharacterKeyEvent.Key.F4, modifierState);
-
-								case '~': // others
-									switch(parts[0]) {
-										case "5": return keyPressAndRelease(NonCharacterKeyEvent.Key.PageUp, modifierState);
-										case "6": return keyPressAndRelease(NonCharacterKeyEvent.Key.PageDown, modifierState);
-										case "2": return keyPressAndRelease(NonCharacterKeyEvent.Key.Insert, modifierState);
-										case "3": return keyPressAndRelease(NonCharacterKeyEvent.Key.Delete, modifierState);
-
-										case "15": return keyPressAndRelease(NonCharacterKeyEvent.Key.F5, modifierState);
-										case "17": return keyPressAndRelease(NonCharacterKeyEvent.Key.F6, modifierState);
-										case "18": return keyPressAndRelease(NonCharacterKeyEvent.Key.F7, modifierState);
-										case "19": return keyPressAndRelease(NonCharacterKeyEvent.Key.F8, modifierState);
-										case "20": return keyPressAndRelease(NonCharacterKeyEvent.Key.F9, modifierState);
-										case "21": return keyPressAndRelease(NonCharacterKeyEvent.Key.F10, modifierState);
-										case "23": return keyPressAndRelease(NonCharacterKeyEvent.Key.F11, modifierState);
-										case "24": return keyPressAndRelease(NonCharacterKeyEvent.Key.F12, modifierState);
-										default:
-									}
-								break;
-
-								default:
-							}
-						} else if(terminal.terminalInFamily("rxvt")) {
-							// FIXME: figure these out. rxvt seems to just change the terminator while keeping the rest the same
-							// though it isn't consistent. ugh.
-						} else {
-							// maybe we could do more terminals, but linux doesn't even send it and screen just seems to pass through, so i don't think so; xterm prolly covers most them anyway
-							// so this space is semi-intentionally left blank
-						}
+						data ~= cast(char)n;
 					}
+				}
+				return [InputEvent(PasteEvent(data), terminal)];
+			case "\033[M":
+				// mouse event
+				auto buttonCode = nextRaw() - 32;
+				// nextChar is commented because i'm not using UTF-8 mouse mode
+				// cuz i don't think it is as widely supported
+				auto x = cast(int)( /*nextChar*/ (nextRaw())) - 33; /* they encode value + 32, but make upper left 1,1. I want it to be 0,0 */
+				auto y = cast(int)( /*nextChar*/ (nextRaw())) - 33; /* ditto */
+
+				bool isRelease = (buttonCode & 0b11) == 3;
+				int buttonNumber;
+				if (!isRelease) {
+					buttonNumber = (buttonCode & 0b11);
+					if (buttonCode & 64)
+						buttonNumber += 3; // button 4 and 5 are sent as like button 1 and 2, but code | 64
+					// so button 1 == button 4 here
+
+					// note: buttonNumber == 0 means button 1 at this point
+					buttonNumber++; // hence this
+
+					// apparently this considers middle to be button 2. but i want middle to be button 3.
+					if (buttonNumber == 2)
+						buttonNumber = 3;
+					else if (buttonNumber == 3)
+						buttonNumber = 2;
+				}
+
+				auto modifiers = buttonCode & (0b0001_1100);
+				// 4 == shift
+				// 8 == meta
+				// 16 == control
+
+				MouseEvent m;
+
+				if (buttonCode & 32)
+					m.eventType = MouseEvent.Type.Moved;
+				else
+					m.eventType = isRelease ? MouseEvent.Type.Released : MouseEvent.Type.Pressed;
+
+				// ugh, if no buttons are pressed, released and moved are indistinguishable...
+				// so we'll count the buttons down, and if we get a release
+				static int buttonsDown = 0;
+				if (!isRelease && buttonNumber <= 3) // exclude wheel "presses"...
+					buttonsDown++;
+
+				if (isRelease && m.eventType != MouseEvent.Type.Moved) {
+					if (buttonsDown)
+						buttonsDown--;
+					else // no buttons down, so this should be a motion instead..
+						m.eventType = MouseEvent.Type.Moved;
+				}
+
+				if (buttonNumber == 0)
+					m.buttons = 0; // we don't actually know :(
+				else
+					m.buttons = 1 << (buttonNumber - 1); // I prefer flags so that's how we do it
+				m.x = x;
+				m.y = y;
+				m.modifierState = modifiers;
+
+				return [InputEvent(m, terminal)];
+			default:
+				// look it up in the termcap key database
+				auto cap = terminal.findSequenceInTermcap(sequence);
+				if (cap !is null) {
+					return translateTermcapName(cap);
+				} else {
+					if (terminal.terminalInFamily("xterm")) {
+						import std.conv, std.string;
+
+						auto terminator = sequence[$ - 1];
+						auto parts = sequence[2 .. $ - 1].split(";");
+						// parts[0] and terminator tells us the key
+						// parts[1] tells us the modifierState
+
+						uint modifierState;
+
+						int modGot;
+						if (parts.length > 1)
+							modGot = to!int(parts[1]);
+			mod_switch:
+						switch (modGot) {
+						case 2:
+							modifierState |= ModifierState.shift;
+							break;
+						case 3:
+							modifierState |= ModifierState.alt;
+							break;
+						case 4:
+							modifierState |= ModifierState.shift | ModifierState.alt;
+							break;
+						case 5:
+							modifierState |= ModifierState.control;
+							break;
+						case 6:
+							modifierState |= ModifierState.shift | ModifierState.control;
+							break;
+						case 7:
+							modifierState |= ModifierState.alt | ModifierState.control;
+							break;
+						case 8:
+							modifierState |= ModifierState.shift | ModifierState.alt | ModifierState.control;
+							break;
+						case 9: .. case 16:
+							modifierState |= ModifierState.meta;
+							if (modGot != 9) {
+								modGot -= 8;
+								goto mod_switch;
+							}
+							break;
+
+							// this is an extension in my own terminal emulator
+						case 20: .. case 36:
+							modifierState |= ModifierState.windows;
+							modGot -= 20;
+							goto mod_switch;
+						default:
+						}
+
+						switch (terminator) {
+						case 'A':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.UpArrow, modifierState);
+						case 'B':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.DownArrow, modifierState);
+						case 'C':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.RightArrow, modifierState);
+						case 'D':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.LeftArrow, modifierState);
+
+						case 'H':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.Home, modifierState);
+						case 'F':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.End, modifierState);
+
+						case 'P':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.F1, modifierState);
+						case 'Q':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.F2, modifierState);
+						case 'R':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.F3, modifierState);
+						case 'S':
+							return keyPressAndRelease(NonCharacterKeyEvent.Key.F4, modifierState);
+
+						case '~': // others
+							switch (parts[0]) {
+							case "5":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.PageUp, modifierState);
+							case "6":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.PageDown, modifierState);
+							case "2":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.Insert, modifierState);
+							case "3":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.Delete, modifierState);
+
+							case "15":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F5, modifierState);
+							case "17":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F6, modifierState);
+							case "18":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F7, modifierState);
+							case "19":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F8, modifierState);
+							case "20":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F9, modifierState);
+							case "21":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F10, modifierState);
+							case "23":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F11, modifierState);
+							case "24":
+								return keyPressAndRelease(NonCharacterKeyEvent.Key.F12, modifierState);
+							default:
+							}
+							break;
+
+						default:
+						}
+					} else if (terminal.terminalInFamily("rxvt")) {
+						// FIXME: figure these out. rxvt seems to just change the terminator while keeping the rest the same
+						// though it isn't consistent. ugh.
+					} else {
+						// maybe we could do more terminals, but linux doesn't even send it and screen just seems to pass through, so i don't think so; xterm prolly covers most them anyway
+						// so this space is semi-intentionally left blank
+					}
+				}
 			}
 
 			return null;
 		}
 
 		auto c = nextRaw(true);
-		if(c == -1)
+		if (c == -1)
 			return null; // interrupted; give back nothing so the other level can recheck signal flags
-		if(c == 0)
+		if (c == 0)
 			return [InputEvent(EndOfFileEvent(), terminal)];
-		if(c == '\033') {
-			if(timedCheckForInput(50)) {
+		if (c == '\033') {
+			if (timedCheckForInput(50)) {
 				// escape sequence
 				c = nextRaw();
-				if(c == '[') { // CSI, ends on anything >= 'A'
+				if (c == '[') { // CSI, ends on anything >= 'A'
 					return doEscapeSequence(readEscapeSequence(sequenceBuffer));
-				} else if(c == 'O') {
+				} else if (c == 'O') {
 					// could be xterm function key
 					auto n = nextRaw();
 
 					char[3] thing;
 					thing[0] = '\033';
 					thing[1] = 'O';
-					thing[2] = cast(char) n;
+					thing[2] = cast(char)n;
 
 					auto cap = terminal.findSequenceInTermcap(thing);
-					if(cap is null) {
-						return charPressAndRelease('\033') ~
-							charPressAndRelease('O') ~
-							charPressAndRelease(thing[2]);
+					if (cap is null) {
+						return charPressAndRelease('\033') ~ charPressAndRelease('O') ~ charPressAndRelease(thing[2]);
 					} else {
 						return translateTermcapName(cap);
 					}
@@ -2205,7 +2244,7 @@ struct RealTimeConsoleInput {
 		} else {
 			// FIXME: what if it is neither? we should check the termcap
 			auto next = nextChar(c);
-			if(next == 127) // some terminals send 127 on the backspace. Let's normalize that.
+			if (next == 127) // some terminals send 127 on the backspace. Let's normalize that.
 				next = '\b';
 			return charPressAndRelease(next);
 		}
@@ -2252,7 +2291,6 @@ struct KeyboardEvent {
 		PageDown = 0x22 + 0xF0000, /// .
 	}
 
-
 }
 
 /// Input event for characters
@@ -2274,6 +2312,7 @@ struct NonCharacterKeyEvent {
 		Released, /// .
 		Pressed /// .
 	}
+
 	Type eventType; /// .
 
 	// these match Windows virtual key codes numerically for simplicity of translation there
@@ -2303,7 +2342,8 @@ struct NonCharacterKeyEvent {
 		End = 0x23, /// .
 		PageUp = 0x21, /// .
 		PageDown = 0x22, /// .
-		}
+	}
+
 	Key key; /// .
 
 	uint modifierState; /// A mask of ModifierState. Always use by checking modifierState & ModifierState.something, the actual value differs across platforms
@@ -2338,6 +2378,7 @@ struct MouseEvent {
 		ScrollUp = 8, /// .
 		ScrollDown = 16 /// .
 	}
+
 	uint buttons; /// A mask of Button
 	int x; /// 0 == left side
 	int y; /// 0 == top
@@ -2354,41 +2395,44 @@ struct SizeChangedEvent {
 
 /// the user hitting ctrl+c will send this
 /// You should drop what you're doing and perhaps exit when this happens.
-struct UserInterruptionEvent {}
+struct UserInterruptionEvent {
+}
 
 /// If the user hangs up (for example, closes the terminal emulator without exiting the app), this is sent.
 /// If you receive it, you should generally cleanly exit.
-struct HangupEvent {}
+struct HangupEvent {
+}
 
 /// Sent upon receiving end-of-file from stdin.
-struct EndOfFileEvent {}
-
-interface CustomEvent {}
-
-version(Windows)
-enum ModifierState : uint {
-	shift = 0x10,
-	control = 0x8 | 0x4, // 8 == left ctrl, 4 == right ctrl
-
-	// i'm not sure if the next two are available
-	alt = 2 | 1, //2 ==left alt, 1 == right alt
-
-	// FIXME: I don't think these are actually available
-	windows = 512,
-	meta = 4096, // FIXME sanity
-
-	// I don't think this is available on Linux....
-	scrollLock = 0x40,
+struct EndOfFileEvent {
 }
-else
-enum ModifierState : uint {
-	shift = 4,
-	alt = 2,
-	control = 16,
-	meta = 8,
 
-	windows = 512 // only available if you are using my terminal emulator; it isn't actually offered on standard linux ones
+interface CustomEvent {
 }
+
+version (Windows)
+	enum ModifierState : uint {
+		shift = 0x10,
+		control = 0x8 | 0x4, // 8 == left ctrl, 4 == right ctrl
+
+		// i'm not sure if the next two are available
+		alt = 2 | 1, //2 ==left alt, 1 == right alt
+
+		// FIXME: I don't think these are actually available
+		windows = 512,
+		meta = 4096, // FIXME sanity
+
+		// I don't think this is available on Linux....
+		scrollLock = 0x40,
+	} else
+	enum ModifierState : uint {
+		shift = 4,
+		alt = 2,
+		control = 16,
+		meta = 8,
+
+		windows = 512 // only available if you are using my terminal emulator; it isn't actually offered on standard linux ones
+	}
 
 /// GetNextEvent returns this. Check the type, then use get to get the more detailed input
 struct InputEvent {
@@ -2407,39 +2451,44 @@ struct InputEvent {
 	}
 
 	/// .
-	@property Type type() { return t; }
+	@property Type type() {
+		return t;
+	}
 
 	/// Returns a pointer to the terminal associated with this event.
 	/// (You can usually just ignore this as there's only one terminal typically.)
 	///
 	/// It may be null in the case of program-generated events;
-	@property Terminal* terminal() { return term; }
+	@property Terminal* terminal() {
+		return term;
+	}
 
 	/// .
 	@property auto get(Type T)() {
-		if(type != T)
+		if (type != T)
 			throw new Exception("Wrong event type");
-		static if(T == Type.CharacterEvent)
+		static if (T == Type.CharacterEvent)
 			return characterEvent;
-		else static if(T == Type.KeyboardEvent)
+		else static if (T == Type.KeyboardEvent)
 			return keyboardEvent;
-		else static if(T == Type.NonCharacterKeyEvent)
+		else static if (T == Type.NonCharacterKeyEvent)
 			return nonCharacterKeyEvent;
-		else static if(T == Type.PasteEvent)
+		else static if (T == Type.PasteEvent)
 			return pasteEvent;
-		else static if(T == Type.MouseEvent)
+		else static if (T == Type.MouseEvent)
 			return mouseEvent;
-		else static if(T == Type.SizeChangedEvent)
+		else static if (T == Type.SizeChangedEvent)
 			return sizeChangedEvent;
-		else static if(T == Type.UserInterruptionEvent)
+		else static if (T == Type.UserInterruptionEvent)
 			return userInterruptionEvent;
-		else static if(T == Type.EndOfFileEvent)
+		else static if (T == Type.EndOfFileEvent)
 			return endOfFileEvent;
-		else static if(T == Type.HangupEvent)
+		else static if (T == Type.HangupEvent)
 			return hangupEvent;
-		else static if(T == Type.CustomEvent)
+		else static if (T == Type.CustomEvent)
 			return customEvent;
-		else static assert(0, "Type " ~ T.stringof ~ " not added to the get function");
+		else
+			static assert(0, "Type " ~ T.stringof ~ " not added to the get function");
 	}
 
 	// custom event is public because otherwise there's no point at all
@@ -2453,34 +2502,42 @@ struct InputEvent {
 			t = Type.CharacterEvent;
 			characterEvent = c;
 		}
+
 		this(KeyboardEvent c, Terminal* p) {
 			t = Type.KeyboardEvent;
 			keyboardEvent = c;
 		}
+
 		this(NonCharacterKeyEvent c, Terminal* p) {
 			t = Type.NonCharacterKeyEvent;
 			nonCharacterKeyEvent = c;
 		}
+
 		this(PasteEvent c, Terminal* p) {
 			t = Type.PasteEvent;
 			pasteEvent = c;
 		}
+
 		this(MouseEvent c, Terminal* p) {
 			t = Type.MouseEvent;
 			mouseEvent = c;
 		}
+
 		this(SizeChangedEvent c, Terminal* p) {
 			t = Type.SizeChangedEvent;
 			sizeChangedEvent = c;
 		}
+
 		this(UserInterruptionEvent c, Terminal* p) {
 			t = Type.UserInterruptionEvent;
 			userInterruptionEvent = c;
 		}
+
 		this(HangupEvent c, Terminal* p) {
 			t = Type.HangupEvent;
 			hangupEvent = c;
 		}
+
 		this(EndOfFileEvent c, Terminal* p) {
 			t = Type.EndOfFileEvent;
 			endOfFileEvent = c;
@@ -2504,8 +2561,7 @@ struct InputEvent {
 	}
 }
 
-version(Demo)
-void main() {
+version (Demo) void main() {
 	auto terminal = Terminal(ConsoleOutputType.cellular);
 
 	//terminal.color(Color.DEFAULT, Color.DEFAULT);
@@ -2544,50 +2600,52 @@ void main() {
 
 	void handleEvent(InputEvent event) {
 		terminal.writef("%s\n", event.type);
-		final switch(event.type) {
-			case InputEvent.Type.UserInterruptionEvent:
-			case InputEvent.Type.HangupEvent:
-			case InputEvent.Type.EndOfFileEvent:
+		final switch (event.type) {
+		case InputEvent.Type.UserInterruptionEvent:
+		case InputEvent.Type.HangupEvent:
+		case InputEvent.Type.EndOfFileEvent:
+			timeToBreak = true;
+			version (with_eventloop) {
+				import arsd.eventloop;
+
+				exit();
+			}
+			break;
+		case InputEvent.Type.SizeChangedEvent:
+			auto ev = event.get!(InputEvent.Type.SizeChangedEvent);
+			terminal.writeln(ev);
+			break;
+		case InputEvent.Type.KeyboardEvent:
+			auto ev = event.get!(InputEvent.Type.KeyboardEvent);
+			terminal.writef("\t%s", ev);
+			terminal.writef(" (%s)", cast(KeyboardEvent.Key)ev.which);
+			terminal.writeln();
+			if (ev.which == 'Q') {
 				timeToBreak = true;
-				version(with_eventloop) {
+				version (with_eventloop) {
 					import arsd.eventloop;
+
 					exit();
 				}
-			break;
-			case InputEvent.Type.SizeChangedEvent:
-				auto ev = event.get!(InputEvent.Type.SizeChangedEvent);
-				terminal.writeln(ev);
-			break;
-			case InputEvent.Type.KeyboardEvent:
-				auto ev = event.get!(InputEvent.Type.KeyboardEvent);
-					terminal.writef("\t%s", ev);
-				terminal.writef(" (%s)", cast(KeyboardEvent.Key) ev.which);
-				terminal.writeln();
-				if(ev.which == 'Q') {
-					timeToBreak = true;
-					version(with_eventloop) {
-						import arsd.eventloop;
-						exit();
-					}
-				}
+			}
 
-				if(ev.which == 'C')
-					terminal.clear();
+			if (ev.which == 'C')
+				terminal.clear();
 			break;
-			case InputEvent.Type.CharacterEvent: // obsolete
-				auto ev = event.get!(InputEvent.Type.CharacterEvent);
-				terminal.writef("\t%s\n", ev);
+		case InputEvent.Type.CharacterEvent: // obsolete
+			auto ev = event.get!(InputEvent.Type.CharacterEvent);
+			terminal.writef("\t%s\n", ev);
 			break;
-			case InputEvent.Type.NonCharacterKeyEvent: // obsolete
-				terminal.writef("\t%s\n", event.get!(InputEvent.Type.NonCharacterKeyEvent));
+		case InputEvent.Type.NonCharacterKeyEvent: // obsolete
+			terminal.writef("\t%s\n", event.get!(InputEvent.Type.NonCharacterKeyEvent));
 			break;
-			case InputEvent.Type.PasteEvent:
-				terminal.writef("\t%s\n", event.get!(InputEvent.Type.PasteEvent));
+		case InputEvent.Type.PasteEvent:
+			terminal.writef("\t%s\n", event.get!(InputEvent.Type.PasteEvent));
 			break;
-			case InputEvent.Type.MouseEvent:
-				terminal.writef("\t%s\n", event.get!(InputEvent.Type.MouseEvent));
+		case InputEvent.Type.MouseEvent:
+			terminal.writef("\t%s\n", event.get!(InputEvent.Type.MouseEvent));
 			break;
-			case InputEvent.Type.CustomEvent:
+		case InputEvent.Type.CustomEvent:
 			break;
 		}
 
@@ -2606,15 +2664,16 @@ void main() {
 		*/
 	}
 
-	version(with_eventloop) {
+	version (with_eventloop) {
 		import arsd.eventloop;
+
 		addListener(&handleEvent);
 		loop();
 	} else {
-		loop: while(true) {
+		loop: while (true) {
 			auto event = input.nextEvent();
 			handleEvent(event);
-			if(timeToBreak)
+			if (timeToBreak)
 				break loop;
 		}
 	}
@@ -2675,37 +2734,41 @@ class LineGetter {
 
 		line.reserve(128);
 
-		if(historyFilename.length)
+		if (historyFilename.length)
 			loadSettingsAndHistoryFromFile();
 
-		regularForeground = cast(Color) terminal._currentForeground;
-		background = cast(Color) terminal._currentBackground;
+		regularForeground = cast(Color)terminal._currentForeground;
+		background = cast(Color)terminal._currentBackground;
 		suggestionForeground = Color.blue;
 	}
 
 	/// Call this before letting LineGetter die so it can do any necessary
 	/// cleanup and save the updated history to a file.
 	void dispose() {
-		if(historyFilename.length)
+		if (historyFilename.length)
 			saveSettingsAndHistoryToFile();
 	}
 
 	/// Override this to change the directory where history files are stored
 	///
 	/// Default is $HOME/.arsd-getline on linux and %APPDATA%/arsd-getline/ on Windows.
-	/* virtual */ string historyFileDirectory() {
-		version(Windows) {
+	/* virtual */
+	string historyFileDirectory() {
+		version (Windows) {
 			char[1024] path;
 			// FIXME: this doesn't link because the crappy dmd lib doesn't have it
-			if(0) { // SHGetFolderPathA(null, CSIDL_APPDATA, null, 0, path.ptr) >= 0) {
+			if (0) { // SHGetFolderPathA(null, CSIDL_APPDATA, null, 0, path.ptr) >= 0) {
 				import core.stdc.string;
-				return cast(string) path[0 .. strlen(path.ptr)] ~ "\\arsd-getline";
+
+				return cast(string)path[0 .. strlen(path.ptr)] ~ "\\arsd-getline";
 			} else {
 				import std.process;
+
 				return environment["APPDATA"] ~ "\\arsd-getline";
 			}
-		} else version(Posix) {
+		} else version (Posix) {
 			import std.process;
+
 			return environment["HOME"] ~ "/.arsd-getline";
 		}
 	}
@@ -2726,39 +2789,46 @@ class LineGetter {
 	/// You might want to turn it off if generating a completion list is slow.
 	bool autoSuggest = true;
 
-
 	/// Override this if you don't want all lines added to the history.
 	/// You can return null to not add it at all, or you can transform it.
-	/* virtual */ string historyFilter(string candidate) {
+	/* virtual */
+	string historyFilter(string candidate) {
 		return candidate;
 	}
 
 	/// You may override this to do nothing
-	/* virtual */ void saveSettingsAndHistoryToFile() {
+	/* virtual */
+	void saveSettingsAndHistoryToFile() {
 		import std.file;
-		if(!exists(historyFileDirectory))
+
+		if (!exists(historyFileDirectory))
 			mkdir(historyFileDirectory);
 		auto fn = historyPath();
 		import std.stdio;
+
 		auto file = File(fn, "wt");
-		foreach(item; history)
+		foreach (item; history)
 			file.writeln(item);
 	}
 
 	private string historyPath() {
 		import std.path;
+
 		auto filename = historyFileDirectory() ~ dirSeparator ~ historyFilename ~ ".history";
 		return filename;
 	}
 
 	/// You may override this to do nothing
-	/* virtual */ void loadSettingsAndHistoryFromFile() {
+	/* virtual */
+	void loadSettingsAndHistoryFromFile() {
 		import std.file;
+
 		history = null;
 		auto fn = historyPath();
-		if(exists(fn)) {
+		if (exists(fn)) {
 			import std.stdio;
-			foreach(line; File(fn, "rt").byLine)
+
+			foreach (line; File(fn, "rt").byLine)
 				history ~= line.idup;
 
 		}
@@ -2774,20 +2844,22 @@ class LineGetter {
 
 		Default is to provide recent command history as autocomplete.
 	*/
-	/* virtual */ protected string[] tabComplete(in dchar[] candidate) {
+	/* virtual */
+	protected string[] tabComplete(in dchar[] candidate) {
 		return history.length > 20 ? history[0 .. 20] : history;
 	}
 
 	private string[] filterTabCompleteList(string[] list) {
-		if(list.length == 0)
+		if (list.length == 0)
 			return list;
 
 		string[] f;
 		f.reserve(list.length);
 
-		foreach(item; list) {
+		foreach (item; list) {
 			import std.algorithm;
-			if(startsWith(item, line[0 .. cursorPosition]))
+
+			if (startsWith(item, line[0 .. cursorPosition]))
 				f ~= item;
 		}
 
@@ -2796,22 +2868,23 @@ class LineGetter {
 
 	/// Override this to provide a custom display of the tab completion list
 	protected void showTabCompleteList(string[] list) {
-		if(list.length) {
+		if (list.length) {
 			// FIXME: allow mouse clicking of an item, that would be cool
 
 			// FIXME: scroll
 			//if(terminal.type == ConsoleOutputType.linear) {
-				terminal.writeln();
-				foreach(item; list) {
-					terminal.color(suggestionForeground, background);
-					import std.utf;
-					auto idx = codeLength!char(line[0 .. cursorPosition]);
-					terminal.write("  ", item[0 .. idx]);
-					terminal.color(regularForeground, background);
-					terminal.writeln(item[idx .. $]);
-				}
-				updateCursorPosition();
-				redraw();
+			terminal.writeln();
+			foreach (item; list) {
+				terminal.color(suggestionForeground, background);
+				import std.utf;
+
+				auto idx = codeLength!char(line[0 .. cursorPosition]);
+				terminal.write("  ", item[0 .. idx]);
+				terminal.color(regularForeground, background);
+				terminal.writeln(item[idx .. $]);
+			}
+			updateCursorPosition();
+			redraw();
 			//}
 		}
 	}
@@ -2822,26 +2895,28 @@ class LineGetter {
 	/// make its own.
 	public string getline(RealTimeConsoleInput* input = null) {
 		startGettingLine();
-		if(input is null) {
+		if (input is null) {
 			auto i = RealTimeConsoleInput(terminal, ConsoleInputFlags.raw | ConsoleInputFlags.allInputEvents);
-			while(workOnLine(i.nextEvent())) {}
+			while (workOnLine(i.nextEvent())) {
+			}
 		} else
-			while(workOnLine(input.nextEvent())) {}
+			while (workOnLine(input.nextEvent())) {
+			}
 		return finishGettingLine();
 	}
 
 	private int currentHistoryViewPosition = 0;
 	private dchar[] uncommittedHistoryCandidate;
 	void loadFromHistory(int howFarBack) {
-		if(howFarBack < 0)
+		if (howFarBack < 0)
 			howFarBack = 0;
-		if(howFarBack > history.length) // lol signed/unsigned comparison here means if i did this first, before howFarBack < 0, it would totally cycle around.
-			howFarBack = cast(int) history.length;
-		if(howFarBack == currentHistoryViewPosition)
+		if (howFarBack > history.length) // lol signed/unsigned comparison here means if i did this first, before howFarBack < 0, it would totally cycle around.
+			howFarBack = cast(int)history.length;
+		if (howFarBack == currentHistoryViewPosition)
 			return;
-		if(currentHistoryViewPosition == 0) {
+		if (currentHistoryViewPosition == 0) {
 			// save the current line so we can down arrow back to it later
-			if(uncommittedHistoryCandidate.length < line.length) {
+			if (uncommittedHistoryCandidate.length < line.length) {
 				uncommittedHistoryCandidate.length = line.length;
 			}
 
@@ -2852,18 +2927,18 @@ class LineGetter {
 
 		currentHistoryViewPosition = howFarBack;
 
-		if(howFarBack == 0) {
+		if (howFarBack == 0) {
 			line.length = uncommittedHistoryCandidate.length;
 			line.assumeSafeAppend();
 			line[] = uncommittedHistoryCandidate[];
 		} else {
 			line = line[0 .. 0];
 			line.assumeSafeAppend();
-			foreach(dchar ch; history[$ - howFarBack])
+			foreach (dchar ch; history[$ - howFarBack])
 				line ~= ch;
 		}
 
-		cursorPosition = cast(int) line.length;
+		cursorPosition = cast(int)line.length;
 		scrollToEnd();
 	}
 
@@ -2875,9 +2950,9 @@ class LineGetter {
 	private int horizontalScrollPosition = 0;
 
 	private void scrollToEnd() {
-		horizontalScrollPosition = (cast(int) line.length);
+		horizontalScrollPosition = (cast(int)line.length);
 		horizontalScrollPosition -= availableLineLength();
-		if(horizontalScrollPosition < 0)
+		if (horizontalScrollPosition < 0)
 			horizontalScrollPosition = 0;
 	}
 
@@ -2894,18 +2969,19 @@ class LineGetter {
 	// /// otherwise it will keep track of the last one to avoid calls to tabComplete.
 	private string suggestion(string[] list = null) {
 		import std.algorithm, std.utf;
+
 		auto relevantLineSection = line[0 .. cursorPosition];
 		// FIXME: see about caching the list if we easily can
-		if(list is null)
+		if (list is null)
 			list = filterTabCompleteList(tabComplete(relevantLineSection));
 
-		if(list.length) {
+		if (list.length) {
 			string commonality = list[0];
-			foreach(item; list[1 .. $]) {
+			foreach (item; list[1 .. $]) {
 				commonality = commonPrefix(commonality, item);
 			}
 
-			if(commonality.length) {
+			if (commonality.length) {
 				return commonality[codeLength!char(relevantLineSection) .. $];
 			}
 		}
@@ -2917,20 +2993,20 @@ class LineGetter {
 	/// You'll probably want to call redraw() after adding chars.
 	void addChar(dchar ch) {
 		assert(cursorPosition >= 0 && cursorPosition <= line.length);
-		if(cursorPosition == line.length)
+		if (cursorPosition == line.length)
 			line ~= ch;
 		else {
 			assert(line.length);
-			if(insertMode) {
+			if (insertMode) {
 				line ~= ' ';
-				for(int i = cast(int) line.length - 2; i >= cursorPosition; i --)
+				for (int i = cast(int)line.length - 2; i >= cursorPosition; i--)
 					line[i + 1] = line[i];
 			}
 			line[cursorPosition] = ch;
 		}
 		cursorPosition++;
 
-		if(cursorPosition >= horizontalScrollPosition + availableLineLength())
+		if (cursorPosition >= horizontalScrollPosition + availableLineLength())
 			horizontalScrollPosition++;
 	}
 
@@ -2938,29 +3014,29 @@ class LineGetter {
 	void addString(string s) {
 		// FIXME: this could be more efficient
 		// but does it matter? these lines aren't super long anyway. But then again a paste could be excessively long (prolly accidental, but still)
-		foreach(dchar ch; s)
+		foreach (dchar ch; s)
 			addChar(ch);
 	}
 
 	/// Deletes the character at the current position in the line.
 	/// You'll probably want to call redraw() after deleting chars.
 	void deleteChar() {
-		if(cursorPosition == line.length)
+		if (cursorPosition == line.length)
 			return;
-		for(int i = cursorPosition; i < line.length - 1; i++)
+		for (int i = cursorPosition; i < line.length - 1; i++)
 			line[i] = line[i + 1];
-		line = line[0 .. $-1];
+		line = line[0 .. $ - 1];
 		line.assumeSafeAppend();
 	}
 
 	///
 	void deleteToEndOfLine() {
-		while(cursorPosition < line.length)
+		while (cursorPosition < line.length)
 			deleteChar();
 	}
 
 	int availableLineLength() {
-		return terminal.width - startOfLineX - cast(int) prompt.length - 1;
+		return terminal.width - startOfLineX - cast(int)prompt.length - 1;
 	}
 
 	private int lastDrawLength = 0;
@@ -2968,7 +3044,7 @@ class LineGetter {
 		terminal.moveTo(startOfLineX, startOfLineY);
 
 		auto lineLength = availableLineLength();
-		if(lineLength < 0)
+		if (lineLength < 0)
 			throw new Exception("too narrow terminal to draw");
 
 		terminal.write(prompt);
@@ -2977,7 +3053,7 @@ class LineGetter {
 		auto cursorPositionToDrawX = cursorPosition - horizontalScrollPosition;
 		auto cursorPositionToDrawY = 0;
 
-		if(towrite.length > lineLength) {
+		if (towrite.length > lineLength) {
 			towrite = towrite[0 .. lineLength];
 		}
 
@@ -2987,9 +3063,9 @@ class LineGetter {
 
 		string suggestion;
 
-		if(lineLength >= 0) {
+		if (lineLength >= 0) {
 			suggestion = ((cursorPosition == towrite.length) && autoSuggest) ? this.suggestion() : null;
-			if(suggestion.length) {
+			if (suggestion.length) {
 				terminal.color(suggestionForeground, background);
 				terminal.write(suggestion);
 				terminal.color(regularForeground, background);
@@ -2997,14 +3073,14 @@ class LineGetter {
 		}
 
 		// FIXME: graphemes and utf-8 on suggestion/prompt
-		auto written = cast(int) (towrite.length + suggestion.length + prompt.length);
+		auto written = cast(int)(towrite.length + suggestion.length + prompt.length);
 
-		if(written < lastDrawLength)
-		foreach(i; written .. lastDrawLength)
-			terminal.write(" ");
+		if (written < lastDrawLength)
+			foreach (i; written .. lastDrawLength)
+				terminal.write(" ");
 		lastDrawLength = written;
 
-		terminal.moveTo(startOfLineX + cursorPositionToDrawX + cast(int) prompt.length, startOfLineY + cursorPositionToDrawY);
+		terminal.moveTo(startOfLineX + cursorPositionToDrawX + cast(int)prompt.length, startOfLineY + cursorPositionToDrawY);
 	}
 
 	/// Starts getting a new line. Call workOnLine and finishGettingLine afterward.
@@ -3017,7 +3093,7 @@ class LineGetter {
 		horizontalScrollPosition = 0;
 		justHitTab = false;
 		currentHistoryViewPosition = 0;
-		if(line.length) {
+		if (line.length) {
 			line = line[0 .. 0];
 			line.assumeSafeAppend();
 		}
@@ -3033,7 +3109,7 @@ class LineGetter {
 		terminal.flush();
 
 		// then get the current cursor position to start fresh
-		version(Windows) {
+		version (Windows) {
 			CONSOLE_SCREEN_BUFFER_INFO info;
 			GetConsoleScreenBufferInfo(terminal.hConsole, &info);
 			startOfLineX = info.dwCursorPosition.X;
@@ -3054,31 +3130,32 @@ class LineGetter {
 			auto n = old;
 			n.c_lflag &= ~(ICANON | ECHO);
 			tcsetattr(terminal.fdIn, TCSANOW, &n);
-			scope(exit)
+			scope (exit)
 				tcsetattr(terminal.fdIn, TCSANOW, &old);
-
 
 			terminal.writeStringRaw("\033[6n");
 			terminal.flush();
 
 			import core.sys.posix.unistd;
+
 			// reading directly to bypass any buffering
 			ubyte[16] buffer;
 			auto len = read(terminal.fdIn, buffer.ptr, buffer.length);
-			if(len <= 0)
+			if (len <= 0)
 				throw new Exception("Couldn't get cursor position to initialize get line");
 			auto got = buffer[0 .. len];
-			if(got.length < 6)
+			if (got.length < 6)
 				throw new Exception("not enough cursor reply answer");
-			if(got[0] != '\033' || got[1] != '[' || got[$-1] != 'R')
+			if (got[0] != '\033' || got[1] != '[' || got[$ - 1] != 'R')
 				throw new Exception("wrong answer for cursor position");
-			auto gots = cast(char[]) got[2 .. $-1];
+			auto gots = cast(char[])got[2 .. $ - 1];
 
 			import std.conv;
 			import std.string;
 
 			auto pieces = split(gots, ";");
-			if(pieces.length != 2) throw new Exception("wtf wrong answer on cursor position");
+			if (pieces.length != 2)
+				throw new Exception("wtf wrong answer on cursor position");
 
 			startOfLineX = to!int(pieces[1]) - 1;
 			startOfLineY = to!int(pieces[0]) - 1;
@@ -3097,191 +3174,191 @@ class LineGetter {
 	///
 	/// returns false when there's nothing more to do
 	bool workOnLine(InputEvent e) {
-		switch(e.type) {
-			case InputEvent.Type.EndOfFileEvent:
-				justHitTab = false;
-				// FIXME: this should be distinct from an empty line when hit at the beginning
-				return false;
+		switch (e.type) {
+		case InputEvent.Type.EndOfFileEvent:
+			justHitTab = false;
+			// FIXME: this should be distinct from an empty line when hit at the beginning
+			return false;
 			//break;
-			case InputEvent.Type.KeyboardEvent:
-				auto ev = e.keyboardEvent;
-				if(ev.pressed == false)
-					return true;
-				/* Insert the character (unless it is backspace, tab, or some other control char) */
-				auto ch = ev.which;
-				switch(ch) {
-					case 4: // ctrl+d will also send a newline-equivalent 
-					case '\r':
-					case '\n':
-						justHitTab = false;
-						return false;
-					case '\t':
-						auto relevantLineSection = line[0 .. cursorPosition];
-						auto possibilities = filterTabCompleteList(tabComplete(relevantLineSection));
-						import std.utf;
-
-						if(possibilities.length == 1) {
-							auto toFill = possibilities[0][codeLength!char(relevantLineSection) .. $];
-							if(toFill.length) {
-								addString(toFill);
-								redraw();
-							}
-							justHitTab = false;
-						} else {
-							if(justHitTab) {
-								justHitTab = false;
-								showTabCompleteList(possibilities);
-							} else {
-								justHitTab = true;
-								/* fill it in with as much commonality as there is amongst all the suggestions */
-								auto suggestion = this.suggestion(possibilities);
-								if(suggestion.length) {
-									addString(suggestion);
-									redraw();
-								}
-							}
-						}
-					break;
-					case '\b':
-						justHitTab = false;
-						if(cursorPosition) {
-							cursorPosition--;
-							for(int i = cursorPosition; i < line.length - 1; i++)
-								line[i] = line[i + 1];
-							line = line[0 .. $ - 1];
-							line.assumeSafeAppend();
-
-							if(!multiLineMode) {
-								if(horizontalScrollPosition > cursorPosition - 1)
-									horizontalScrollPosition = cursorPosition - 1 - availableLineLength();
-								if(horizontalScrollPosition < 0)
-									horizontalScrollPosition = 0;
-							}
-
-							redraw();
-						}
-					break;
-					case KeyboardEvent.Key.LeftArrow:
-						justHitTab = false;
-						if(cursorPosition)
-							cursorPosition--;
-						if(!multiLineMode) {
-							if(cursorPosition < horizontalScrollPosition)
-								horizontalScrollPosition--;
-						}
-
-						redraw();
-					break;
-					case KeyboardEvent.Key.RightArrow:
-						justHitTab = false;
-						if(cursorPosition < line.length)
-							cursorPosition++;
-						if(!multiLineMode) {
-							if(cursorPosition >= horizontalScrollPosition + availableLineLength())
-								horizontalScrollPosition++;
-						}
-
-						redraw();
-					break;
-					case KeyboardEvent.Key.UpArrow:
-						justHitTab = false;
-						loadFromHistory(currentHistoryViewPosition + 1);
-						redraw();
-					break;
-					case KeyboardEvent.Key.DownArrow:
-						justHitTab = false;
-						loadFromHistory(currentHistoryViewPosition - 1);
-						redraw();
-					break;
-					case KeyboardEvent.Key.PageUp:
-						justHitTab = false;
-						loadFromHistory(cast(int) history.length);
-						redraw();
-					break;
-					case KeyboardEvent.Key.PageDown:
-						justHitTab = false;
-						loadFromHistory(0);
-						redraw();
-					break;
-					case 1: // ctrl+a does home too in the emacs keybindings
-					case KeyboardEvent.Key.Home:
-						justHitTab = false;
-						cursorPosition = 0;
-						horizontalScrollPosition = 0;
-						redraw();
-					break;
-					case 5: // ctrl+e from emacs
-					case KeyboardEvent.Key.End:
-						justHitTab = false;
-						cursorPosition = cast(int) line.length;
-						scrollToEnd();
-						redraw();
-					break;
-					case KeyboardEvent.Key.Insert:
-						justHitTab = false;
-						insertMode = !insertMode;
-						// FIXME: indicate this on the UI somehow
-						// like change the cursor or something
-					break;
-					case KeyboardEvent.Key.Delete:
-						justHitTab = false;
-						if(ev.modifierState & ModifierState.control)
-							deleteToEndOfLine();
-						else
-							deleteChar();
-						redraw();
-					break;
-					case 11: // ctrl+k is delete to end of line from emacs
-						justHitTab = false;
-						deleteToEndOfLine();
-						redraw();
-					break;
-					default:
-						justHitTab = false;
-						if(e.keyboardEvent.isCharacter)
-							addChar(ch);
-						redraw();
-				}
-			break;
-			case InputEvent.Type.PasteEvent:
+		case InputEvent.Type.KeyboardEvent:
+			auto ev = e.keyboardEvent;
+			if (ev.pressed == false)
+				return true;
+			/* Insert the character (unless it is backspace, tab, or some other control char) */
+			auto ch = ev.which;
+			switch (ch) {
+			case 4: // ctrl+d will also send a newline-equivalent 
+			case '\r':
+			case '\n':
 				justHitTab = false;
-				addString(e.pasteEvent.pastedText);
-				redraw();
-			break;
-			case InputEvent.Type.MouseEvent:
-				/* Clicking with the mouse to move the cursor is so much easier than arrowing
-				   or even emacs/vi style movements much of the time, so I'ma support it. */
+				return false;
+			case '\t':
+				auto relevantLineSection = line[0 .. cursorPosition];
+				auto possibilities = filterTabCompleteList(tabComplete(relevantLineSection));
+				import std.utf;
 
-				auto me = e.mouseEvent;
-				if(me.eventType == MouseEvent.Type.Pressed) {
-					if(me.buttons & MouseEvent.Button.Left) {
-						if(me.y == startOfLineY) {
-							// FIXME: prompt.length should be graphemes or at least code poitns
-							int p = me.x - startOfLineX - cast(int) prompt.length + horizontalScrollPosition;
-							if(p >= 0 && p < line.length) {
-								justHitTab = false;
-								cursorPosition = p;
-								redraw();
-							}
+				if (possibilities.length == 1) {
+					auto toFill = possibilities[0][codeLength!char(relevantLineSection) .. $];
+					if (toFill.length) {
+						addString(toFill);
+						redraw();
+					}
+					justHitTab = false;
+				} else {
+					if (justHitTab) {
+						justHitTab = false;
+						showTabCompleteList(possibilities);
+					} else {
+						justHitTab = true;
+						/* fill it in with as much commonality as there is amongst all the suggestions */
+						auto suggestion = this.suggestion(possibilities);
+						if (suggestion.length) {
+							addString(suggestion);
+							redraw();
 						}
 					}
 				}
-			break;
-			case InputEvent.Type.SizeChangedEvent:
-				/* We'll adjust the bounding box. If you don't like this, handle SizeChangedEvent
-				   yourself and then don't pass it to this function. */
-				// FIXME
-			break;
-			case InputEvent.Type.UserInterruptionEvent:
-				/* I'll take this as canceling the line. */
-				throw new UserInterruptionException();
-			//break;
-			case InputEvent.Type.HangupEvent:
-				/* I'll take this as canceling the line. */
-				throw new HangupException();
-			//break;
+				break;
+			case '\b':
+				justHitTab = false;
+				if (cursorPosition) {
+					cursorPosition--;
+					for (int i = cursorPosition; i < line.length - 1; i++)
+						line[i] = line[i + 1];
+					line = line[0 .. $ - 1];
+					line.assumeSafeAppend();
+
+					if (!multiLineMode) {
+						if (horizontalScrollPosition > cursorPosition - 1)
+							horizontalScrollPosition = cursorPosition - 1 - availableLineLength();
+						if (horizontalScrollPosition < 0)
+							horizontalScrollPosition = 0;
+					}
+
+					redraw();
+				}
+				break;
+			case KeyboardEvent.Key.LeftArrow:
+				justHitTab = false;
+				if (cursorPosition)
+					cursorPosition--;
+				if (!multiLineMode) {
+					if (cursorPosition < horizontalScrollPosition)
+						horizontalScrollPosition--;
+				}
+
+				redraw();
+				break;
+			case KeyboardEvent.Key.RightArrow:
+				justHitTab = false;
+				if (cursorPosition < line.length)
+					cursorPosition++;
+				if (!multiLineMode) {
+					if (cursorPosition >= horizontalScrollPosition + availableLineLength())
+						horizontalScrollPosition++;
+				}
+
+				redraw();
+				break;
+			case KeyboardEvent.Key.UpArrow:
+				justHitTab = false;
+				loadFromHistory(currentHistoryViewPosition + 1);
+				redraw();
+				break;
+			case KeyboardEvent.Key.DownArrow:
+				justHitTab = false;
+				loadFromHistory(currentHistoryViewPosition - 1);
+				redraw();
+				break;
+			case KeyboardEvent.Key.PageUp:
+				justHitTab = false;
+				loadFromHistory(cast(int)history.length);
+				redraw();
+				break;
+			case KeyboardEvent.Key.PageDown:
+				justHitTab = false;
+				loadFromHistory(0);
+				redraw();
+				break;
+			case 1: // ctrl+a does home too in the emacs keybindings
+			case KeyboardEvent.Key.Home:
+				justHitTab = false;
+				cursorPosition = 0;
+				horizontalScrollPosition = 0;
+				redraw();
+				break;
+			case 5: // ctrl+e from emacs
+			case KeyboardEvent.Key.End:
+				justHitTab = false;
+				cursorPosition = cast(int)line.length;
+				scrollToEnd();
+				redraw();
+				break;
+			case KeyboardEvent.Key.Insert:
+				justHitTab = false;
+				insertMode = !insertMode;
+				// FIXME: indicate this on the UI somehow
+				// like change the cursor or something
+				break;
+			case KeyboardEvent.Key.Delete:
+				justHitTab = false;
+				if (ev.modifierState & ModifierState.control)
+					deleteToEndOfLine();
+				else
+					deleteChar();
+				redraw();
+				break;
+			case 11: // ctrl+k is delete to end of line from emacs
+				justHitTab = false;
+				deleteToEndOfLine();
+				redraw();
+				break;
 			default:
-				/* ignore. ideally it wouldn't be passed to us anyway! */
+				justHitTab = false;
+				if (e.keyboardEvent.isCharacter)
+					addChar(ch);
+				redraw();
+			}
+			break;
+		case InputEvent.Type.PasteEvent:
+			justHitTab = false;
+			addString(e.pasteEvent.pastedText);
+			redraw();
+			break;
+		case InputEvent.Type.MouseEvent:
+			/* Clicking with the mouse to move the cursor is so much easier than arrowing
+				   or even emacs/vi style movements much of the time, so I'ma support it. */
+
+			auto me = e.mouseEvent;
+			if (me.eventType == MouseEvent.Type.Pressed) {
+				if (me.buttons & MouseEvent.Button.Left) {
+					if (me.y == startOfLineY) {
+						// FIXME: prompt.length should be graphemes or at least code poitns
+						int p = me.x - startOfLineX - cast(int)prompt.length + horizontalScrollPosition;
+						if (p >= 0 && p < line.length) {
+							justHitTab = false;
+							cursorPosition = p;
+							redraw();
+						}
+					}
+				}
+			}
+			break;
+		case InputEvent.Type.SizeChangedEvent:
+			/* We'll adjust the bounding box. If you don't like this, handle SizeChangedEvent
+				   yourself and then don't pass it to this function. */
+			// FIXME
+			break;
+		case InputEvent.Type.UserInterruptionEvent:
+			/* I'll take this as canceling the line. */
+			throw new UserInterruptionException();
+			//break;
+		case InputEvent.Type.HangupEvent:
+			/* I'll take this as canceling the line. */
+			throw new HangupException();
+			//break;
+		default:
+			/* ignore. ideally it wouldn't be passed to us anyway! */
 		}
 
 		return true;
@@ -3289,9 +3366,10 @@ class LineGetter {
 
 	string finishGettingLine() {
 		import std.conv;
+
 		auto f = to!string(line);
 		auto history = historyFilter(f);
-		if(history !is null)
+		if (history !is null)
 			this.history ~= history;
 
 		// FIXME: we should hide the cursor if it was hidden in the call to startGettingLine
@@ -3317,38 +3395,34 @@ class FileLineGetter : LineGetter {
 
 	override protected string[] tabComplete(in dchar[] candidate) {
 		import std.file, std.conv, std.algorithm, std.string;
+
 		const(dchar)[] soFar = candidate;
 		auto idx = candidate.lastIndexOf(" ");
-		if(idx != -1)
+		if (idx != -1)
 			soFar = candidate[idx + 1 .. $];
 
 		string[] list;
-		foreach(string name; dirEntries(searchDirectory, SpanMode.breadth)) {
+		foreach (string name; dirEntries(searchDirectory, SpanMode.breadth)) {
 			// try without the ./
-			if(startsWith(name[2..$], soFar))
+			if (startsWith(name[2 .. $], soFar))
 				list ~= text(candidate, name[searchDirectory.length + 1 + soFar.length .. $]);
 			else // and with
-			if(startsWith(name, soFar))
-				list ~= text(candidate, name[soFar.length .. $]);
+				if (startsWith(name, soFar))
+					list ~= text(candidate, name[soFar.length .. $]);
 		}
 
 		return list;
 	}
 }
 
-version(Windows) {
+version (Windows) {
 	// to get the directory for saving history in the line things
 	enum CSIDL_APPDATA = 26;
-	extern(Windows) HRESULT SHGetFolderPathA(HWND, int, HANDLE, DWORD, LPSTR);
+	extern (Windows) HRESULT SHGetFolderPathA(HWND, int, HANDLE, DWORD, LPSTR);
 }
-
-
-
-
 
 /* Like getting a line, printing a lot of lines is kinda important too, so I'm including
    that widget here too. */
-
 
 struct ScrollbackBuffer {
 	this(string name) {
@@ -3357,6 +3431,7 @@ struct ScrollbackBuffer {
 
 	void write(T...)(T t) {
 		import std.conv : text;
+
 		addComponent(text(t), foreground_, background_, null);
 	}
 
@@ -3365,7 +3440,8 @@ struct ScrollbackBuffer {
 	}
 
 	void writef(T...)(string fmt, T t) {
-		import std.format: format;
+		import std.format : format;
+
 		write(format(fmt, t));
 	}
 
@@ -3386,27 +3462,29 @@ struct ScrollbackBuffer {
 	}
 
 	void addComponent(string text, int foreground, int background, bool delegate() onclick) {
-		if(lines.length == 0) {
+		if (lines.length == 0) {
 			addLine();
 		}
 		bool first = true;
 		import std.algorithm;
-		foreach(t; splitter(text, "\n")) {
-			if(!first) addLine();
+
+		foreach (t; splitter(text, "\n")) {
+			if (!first)
+				addLine();
 			first = false;
-			lines[$-1].components ~= LineComponent(t, foreground, background, onclick);
+			lines[$ - 1].components ~= LineComponent(t, foreground, background, onclick);
 		}
 	}
 
 	void addLine() {
 		lines ~= Line();
-		if(scrollbackPosition) // if the user is scrolling back, we want to keep them basically centered where they are
+		if (scrollbackPosition) // if the user is scrolling back, we want to keep them basically centered where they are
 			scrollbackPosition++;
 	}
 
 	void addLine(string line) {
 		lines ~= Line([LineComponent(line)]);
-		if(scrollbackPosition) // if the user is scrolling back, we want to keep them basically centered where they are
+		if (scrollbackPosition) // if the user is scrolling back, we want to keep them basically centered where they are
 			scrollbackPosition++;
 	}
 
@@ -3418,11 +3496,9 @@ struct ScrollbackBuffer {
 
 	void scrollDown(int lines = 1) {
 		scrollbackPosition -= lines;
-		if(scrollbackPosition < 0)
+		if (scrollbackPosition < 0)
 			scrollbackPosition = 0;
 	}
-
-
 
 	struct LineComponent {
 		string text;
@@ -3435,7 +3511,7 @@ struct ScrollbackBuffer {
 		LineComponent[] components;
 		int length() {
 			int l = 0;
-			foreach(c; components)
+			foreach (c; components)
 				l += c.text.length;
 			return l;
 		}
@@ -3451,12 +3527,12 @@ struct ScrollbackBuffer {
 	int scrollbackPosition;
 
 	void drawInto(Terminal* terminal, in int x = 0, in int y = 0, int width = 0, int height = 0) {
-		if(lines.length == 0)
+		if (lines.length == 0)
 			return;
 
-		if(width == 0)
+		if (width == 0)
 			width = terminal.width;
-		if(height == 0)
+		if (height == 0)
 			height = terminal.height;
 
 		this.x = x;
@@ -3469,7 +3545,7 @@ struct ScrollbackBuffer {
 		   start drawing */
 
 		int remaining = height + scrollbackPosition;
-		int start = cast(int) lines.length;
+		int start = cast(int)lines.length;
 		int howMany = 0;
 
 		bool firstPartial = false;
@@ -3494,16 +3570,16 @@ struct ScrollbackBuffer {
 
 		// It could probably do this instead of on each redraw, on each resize or insertion.
 		// or at least cache between redraws until one of those invalidates it.
-		foreach_reverse(line; lines) {
+		foreach_reverse (line; lines) {
 			int written = 0;
 			int brokenLineCount;
 			Idx[16] lineBreaksBuffer;
 			Idx[] lineBreaks = lineBreaksBuffer[];
-			comp_loop: foreach(cidx, component; line.components) {
+			comp_loop: foreach (cidx, component; line.components) {
 				auto towrite = component.text;
-				foreach(idx, dchar ch; towrite) {
-					if(written >= width) {
-						if(brokenLineCount == lineBreaks.length)
+				foreach (idx, dchar ch; towrite) {
+					if (written >= width) {
+						if (brokenLineCount == lineBreaks.length)
 							lineBreaks ~= Idx(cidx, idx);
 						else
 							lineBreaks[brokenLineCount] = Idx(cidx, idx);
@@ -3513,7 +3589,7 @@ struct ScrollbackBuffer {
 						written = 0;
 					}
 
-					if(ch == '\t')
+					if (ch == '\t')
 						written += 8; // FIXME
 					else
 						written++;
@@ -3522,15 +3598,15 @@ struct ScrollbackBuffer {
 
 			lineBreaks = lineBreaks[0 .. brokenLineCount];
 
-			foreach_reverse(lineBreak; lineBreaks) {
-				if(remaining == 1) {
+			foreach_reverse (lineBreak; lineBreaks) {
+				if (remaining == 1) {
 					firstPartial = true;
 					firstPartialStartIndex = lineBreak;
 					break;
 				} else {
 					remaining--;
 				}
-				if(remaining <= 0)
+				if (remaining <= 0)
 					break;
 			}
 
@@ -3538,45 +3614,45 @@ struct ScrollbackBuffer {
 
 			start--;
 			howMany++;
-			if(remaining <= 0)
+			if (remaining <= 0)
 				break;
 		}
 
 		// second pass: actually draw it
 		int linePos = remaining;
 
-		foreach(idx, line; lines[start .. start + howMany]) {
+		foreach (idx, line; lines[start .. start + howMany]) {
 			int written = 0;
 
-			if(linePos < 0) {
+			if (linePos < 0) {
 				linePos++;
 				continue;
 			}
-		
+
 			terminal.moveTo(x, y + ((linePos >= 0) ? linePos : 0));
 
 			auto todo = line.components;
 
-			if(firstPartial) {
+			if (firstPartial) {
 				todo = todo[firstPartialStartIndex.cidx .. $];
 			}
 
-			foreach(ref component; todo) {
+			foreach (ref component; todo) {
 				terminal.color(component.color, component.background);
 				auto towrite = component.text;
 
-				again:
+			again:
 
-				if(linePos >= height)
+				if (linePos >= height)
 					break;
 
-				if(firstPartial) {
+				if (firstPartial) {
 					towrite = towrite[firstPartialStartIndex.idx .. $];
 					firstPartial = false;
 				}
 
-				foreach(idx, dchar ch; towrite) {
-					if(written >= width) {
+				foreach (idx, dchar ch; towrite) {
+					if (written >= width) {
 						clickRegions ~= ClickRegion(&component, terminal.cursorX, terminal.cursorY, written);
 						terminal.write(towrite[0 .. idx]);
 						towrite = towrite[idx .. $];
@@ -3586,36 +3662,36 @@ struct ScrollbackBuffer {
 						goto again;
 					}
 
-					if(ch == '\t')
+					if (ch == '\t')
 						written += 8; // FIXME
 					else
 						written++;
 				}
 
-				if(towrite.length) {
+				if (towrite.length) {
 					clickRegions ~= ClickRegion(&component, terminal.cursorX, terminal.cursorY, written);
 					terminal.write(towrite);
 				}
 			}
 
-			if(written < width) {
+			if (written < width) {
 				terminal.color(Color.DEFAULT, Color.DEFAULT);
-				foreach(i; written .. width)
+				foreach (i; written .. width)
 					terminal.write(" ");
 			}
 
 			linePos++;
 
-			if(linePos >= height)
+			if (linePos >= height)
 				break;
 		}
 
-		if(linePos < height) {
+		if (linePos < height) {
 			terminal.color(Color.DEFAULT, Color.DEFAULT);
-			foreach(i; linePos .. height) {
-				if(i >= 0 && i < height) {
+			foreach (i; linePos .. height) {
+				if (i >= 0 && i < height) {
 					terminal.moveTo(x, y + i);
-					foreach(w; 0 .. width)
+					foreach (w; 0 .. width)
 						terminal.write(" ");
 				}
 			}
@@ -3628,6 +3704,7 @@ struct ScrollbackBuffer {
 		int yStart;
 		int length;
 	}
+
 	private ClickRegion[] clickRegions;
 
 	/// Default event handling for this widget. Call this only after drawing it into a rectangle
@@ -3636,72 +3713,72 @@ struct ScrollbackBuffer {
 	///
 	/// Returns true if it should be redrawn
 	bool handleEvent(InputEvent e) {
-		final switch(e.type) {
-			case InputEvent.Type.KeyboardEvent:
-				auto ev = e.keyboardEvent;
+		final switch (e.type) {
+		case InputEvent.Type.KeyboardEvent:
+			auto ev = e.keyboardEvent;
 
-				switch(ev.which) {
-					case KeyboardEvent.Key.UpArrow:
+			switch (ev.which) {
+			case KeyboardEvent.Key.UpArrow:
+				scrollUp();
+				return true;
+			case KeyboardEvent.Key.DownArrow:
+				scrollDown();
+				return true;
+			case KeyboardEvent.Key.PageUp:
+				scrollUp(height);
+				return true;
+			case KeyboardEvent.Key.PageDown:
+				scrollDown(height);
+				return true;
+			default:
+				// ignore
+			}
+			break;
+		case InputEvent.Type.MouseEvent:
+			auto ev = e.mouseEvent;
+			if (ev.x >= x && ev.x < x + width && ev.y >= y && ev.y < y + height) {
+				// it is inside our box, so do something with it
+				auto mx = ev.x - x;
+				auto my = ev.y - y;
+
+				if (ev.eventType == MouseEvent.Type.Pressed) {
+					if (ev.buttons & MouseEvent.Button.Left) {
+						foreach (region; clickRegions)
+							if (ev.x >= region.xStart && ev.x < region.xStart + region.length && ev.y == region.yStart)
+								if (region.component.onclick !is null)
+									return region.component.onclick();
+					}
+					if (ev.buttons & MouseEvent.Button.ScrollUp) {
 						scrollUp();
 						return true;
-					case KeyboardEvent.Key.DownArrow:
+					}
+					if (ev.buttons & MouseEvent.Button.ScrollDown) {
 						scrollDown();
 						return true;
-					case KeyboardEvent.Key.PageUp:
-						scrollUp(height);
-						return true;
-					case KeyboardEvent.Key.PageDown:
-						scrollDown(height);
-						return true;
-					default:
-						// ignore
-				}
-			break;
-			case InputEvent.Type.MouseEvent:
-				auto ev = e.mouseEvent;
-				if(ev.x >= x && ev.x < x + width && ev.y >= y && ev.y < y + height) {
-					// it is inside our box, so do something with it
-					auto mx = ev.x - x;
-					auto my = ev.y - y;
-
-					if(ev.eventType == MouseEvent.Type.Pressed) {
-						if(ev.buttons & MouseEvent.Button.Left) {
-							foreach(region; clickRegions)
-								if(ev.x >= region.xStart && ev.x < region.xStart + region.length && ev.y == region.yStart)
-									if(region.component.onclick !is null)
-										return region.component.onclick();
-						}
-						if(ev.buttons & MouseEvent.Button.ScrollUp) {
-							scrollUp();
-							return true;
-						}
-						if(ev.buttons & MouseEvent.Button.ScrollDown) {
-							scrollDown();
-							return true;
-						}
 					}
-				} else {
-					// outside our area, free to ignore
 				}
+			} else {
+				// outside our area, free to ignore
+			}
 			break;
-			case InputEvent.Type.SizeChangedEvent:
-				// (size changed might be but it needs to be handled at a higher level really anyway)
-				// though it will return true because it probably needs redrawing anyway.
-				return true;
-			case InputEvent.Type.UserInterruptionEvent:
-				throw new UserInterruptionException();
-			case InputEvent.Type.HangupEvent:
-				throw new HangupException();
-			case InputEvent.Type.EndOfFileEvent:
-				// ignore, not relevant to this
+		case InputEvent.Type.SizeChangedEvent:
+			// (size changed might be but it needs to be handled at a higher level really anyway)
+			// though it will return true because it probably needs redrawing anyway.
+			return true;
+		case InputEvent.Type.UserInterruptionEvent:
+			throw new UserInterruptionException();
+		case InputEvent.Type.HangupEvent:
+			throw new HangupException();
+		case InputEvent.Type.EndOfFileEvent:
+			// ignore, not relevant to this
 			break;
-			case InputEvent.Type.CharacterEvent:
-			case InputEvent.Type.NonCharacterKeyEvent:
-				// obsolete, ignore them until they are removed
+		case InputEvent.Type.CharacterEvent:
+		case InputEvent.Type.NonCharacterKeyEvent:
+			// obsolete, ignore them until they are removed
 			break;
-			case InputEvent.Type.CustomEvent:
-			case InputEvent.Type.PasteEvent:
-				// ignored, not relevant to us
+		case InputEvent.Type.CustomEvent:
+		case InputEvent.Type.PasteEvent:
+			// ignored, not relevant to us
 			break;
 		}
 
@@ -3709,15 +3786,17 @@ struct ScrollbackBuffer {
 	}
 }
 
-
 class UserInterruptionException : Exception {
-	this() { super("Ctrl+C"); }
+	this() {
+		super("Ctrl+C");
+	}
 }
+
 class HangupException : Exception {
-	this() { super("Hup"); }
+	this() {
+		super("Hup");
+	}
 }
-
-
 
 /*
 
@@ -3796,24 +3875,23 @@ class HangupException : Exception {
        XK_KP_9           9                                       ESC O y
 */
 
-version(Demo_kbhit)
-void main() {
+version (Demo_kbhit) void main() {
 	auto terminal = Terminal(ConsoleOutputType.linear);
 	auto input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.raw);
 
 	int a;
 	char ch = '.';
-	while(a < 1000) {
+	while (a < 1000) {
 		a++;
-		if(a % terminal.width == 0) {
+		if (a % terminal.width == 0) {
 			terminal.write("\r");
-			if(ch == '.')
+			if (ch == '.')
 				ch = ' ';
 			else
 				ch = '.';
 		}
 
-		if(input.kbhit())
+		if (input.kbhit())
 			terminal.write(input.getch());
 		else
 			terminal.write(ch);
@@ -3821,6 +3899,7 @@ void main() {
 		terminal.flush();
 
 		import core.thread;
+
 		Thread.sleep(50.msecs);
 	}
 }
